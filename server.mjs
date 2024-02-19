@@ -4,7 +4,7 @@
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
-import * as graph from "./static/graph.mjs";
+import { Graph } from "./static/graph.mjs";
 
 const PORT = 8000;
 
@@ -36,6 +36,9 @@ http.createServer(async (req, res) => {
   let statusCode;
 
   if (req.url.startsWith('/graph/')) {
+    let parts = req.url.split("/");
+    let str = parts[2];
+    // here
   } else {
     const file = await prepareFile(req.url);
     statusCode = file.found ? 200 : 404;
@@ -48,3 +51,4 @@ http.createServer(async (req, res) => {
 }).listen(PORT);
 
 console.log(`Server running at http://127.0.0.1:${PORT}/`);
+

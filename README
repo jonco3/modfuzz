@@ -1,0 +1,10 @@
+modfuzz
+=======
+
+This is a attempt to write a simple fuzzer to test the DOM module loader.
+
+We generate random module graphs and server them with a node based server.
+
+Start with:
+
+ $ node server.js
