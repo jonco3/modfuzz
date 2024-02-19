@@ -124,6 +124,44 @@ export class Node {
 
     return lines.join("\n");
   }
+
+  toString() {
+    let flags = (this.isError ? "e" : "") + (this.isAsync ? "a" : "");
+    let parts = [flags, this.outEdges.length];
+    this.forEachOutgoingEdge((node, isAsync) => {
+      parts.push(`${isAsync ? "a" : ""}${node.index}`);
+    });
+    return parts.join(",");
+  }
+
+  initFromString(graph, str) {
+    if (str === 0) {
+      throw "Empty string";
+    }
+    let parts = str.split(",");
+    if (parts.length < 2) {
+      throw "Bad node size";
+    }
+    let flags = parts.shift();
+    this.isAsync = flags.includes("a");
+    this.isError = flags.includes("e");
+    let size = parseInt(parts.shift());
+    if (Number.isNaN(size) || parts.length !== size) {
+      throw "Bad node size";
+    }
+    for (let part of parts) {
+      let isAsync = false;
+      if (part.startsWith("a")) {
+        isAsync = true;
+        part = part.substring(1);
+      }
+      let index = parseInt(part);
+      if (Number.isNaN(index) || index >= graph.size) {
+        throw "Bad node index";
+      }
+      this.addImport(graph.getNode(index), isAsync);
+    }
+  }
 }
 
 export class Graph {
@@ -202,6 +240,34 @@ export class Graph {
     }
 
     return result;
+  }
+
+  toString() {
+    let parts = [this.size];
+    this.forEachNode((node) => {
+      parts.push(node.toString());
+    });
+    return parts.join(";");
+  }
+
+  static fromString(str) {
+    if (str === 0) {
+      throw "Empty string";
+    }
+    let parts = str.split(";");
+    let size = parseInt(parts.shift());
+    if (Number.isNaN(size) || parts.length !== size) {
+      throw "Bad graph size";
+    }
+    let graph = new Graph();
+    for (let i = 0; i < size; i++) {
+      let isRoot = i === 0;
+      graph.addNode(new Node(i, isRoot, false, false));
+    }
+    for (let i = 0; i < size; i++) {
+      graph.getNode(i).initFromString(graph, parts[i]);
+    }
+    return graph;
   }
 }
 

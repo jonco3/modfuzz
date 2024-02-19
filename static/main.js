@@ -45,6 +45,7 @@ let loadFinished;
 function fuzz() {
   testCount++;
   graph = buildModuleGraph(2 + rand(8));
+
   dumpGraph(graph);
 
   let pageURL = getPageURL(graph.root.buildPageSource());
