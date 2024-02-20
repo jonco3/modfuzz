@@ -6,13 +6,20 @@
 import { Graph, Node, DFS } from "./graph.mjs";
 
 let state;
+
+let showGraph;
+
 let testCount = 0;
+let startTime;
 
 document.getElementById("start").onclick = start;
 function start() {
   if (!state) {
     print("Starting");
     state = "running";
+    showGraph = document.getElementById("showGraph").checked;
+    testCount = 0;
+    startTime = performance.now();
     runNextTest();
   }
 }
@@ -46,7 +53,12 @@ function fuzz() {
   testCount++;
   graph = buildModuleGraph(2 + rand(8));
 
-  dumpGraph(graph);
+  let elapsed = (performance.now() - startTime) / 1000;
+  print(`Tests per second: ${(testCount / elapsed).toFixed(2)}`);
+
+  if (showGraph) {
+    dumpGraph(graph);
+  }
 
   let pageURL = graph.getRootURL();
 
@@ -157,7 +169,6 @@ function buildModuleGraph(size, maybeOptions) {
       }
     }
 
-
     if (!isRoot && choose(pCyclic)) {
       // Choose an ancestor to import.
 
@@ -216,32 +227,54 @@ function initTestState(graph) {
   loadStarted = new Array(graph.size).fill(false);
 }
 
+class AssertionError extends Error {
+  constructor(message) {
+    super(message);
+  }
+}
+
 function checkModuleGraph(graph, root) {
-  print("Load log: " + loadOrder.join(", "));
-  print("Loaded: " + loadFinished);
-
-  if (graph.hasAsyncEvaluation() || graph.hasCycle()) {
-    // Difficult to work out expectations without implementing the algorithm
-    // itself. Run some simpler checks.
-    print("Simple check");
-
-    if (!graph.hasError()) {
-      let expected = new Array(graph.size).fill(true);
-      assertEq(loadStarted.join(), expected.join());
-      assertEq(loadFinished.join(), expected.join());
+  try {
+    if (graph.hasAsyncEvaluation() || graph.hasCycle()) {
+      // Difficult to work out expectations without implementing the algorithm
+      // itself. Run some simpler checks.
+      simpleGraphCheck(graph, root);
     } else {
-      graph.forEachNode(node => {
-        if (node.isError) {
-          assertEq(loadFinished[node.index], false);
-        }
-      });
+      fullGraphCheck(graph, root);
     }
+  } catch (error) {
+    print(error);
+    if (error instanceof AssertionError) {
+      if (!showGraph) {
+        dumpGraph(graph);
+      }
+      print("Graph check failed:");
+      print("Load order: " + loadOrder.join(", "));
+      print("Load started: " + loadStarted.join(", "));
+      print("Load finished: " + loadFinished.join(", "));
+    }
+    throw error;
+  }
+}
 
+function simpleGraphCheck(graph, root) {
+  // TODO: Can we improve these checks?
+
+  if (!graph.hasError()) {
+    let expected = new Array(graph.size).fill(true);
+    assertEq(loadStarted.join(), expected.join());
+    assertEq(loadFinished.join(), expected.join());
     return;
   }
 
-  print("Full check");
+  graph.forEachNode(node => {
+    if (node.isError) {
+      assertEq(loadFinished[node.index], false);
+    }
+  });
+}
 
+function fullGraphCheck(graph, root) {
   let expectedOrder = [];
   let expectedStart = new Array(graph.size).fill(false);
   let expectedEnd = new Array(graph.size).fill(false);
@@ -270,7 +303,6 @@ function checkModuleGraph(graph, root) {
 function assertEq(actual, expected) {
   if (actual !== expected) {
     let message = `Assertion failure: expected ${expected} but got ${actual}`;
-    print(message);
-    throw new Error(message);
+    throw new AssertionError(message);
   }
 }
