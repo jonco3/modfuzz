@@ -48,9 +48,22 @@ async function handleStaticFile(url)  {
   return { statusCode: 200, mimeType, stream };
 };
 
+let cachedEncodedGraph;
+let cachedGraph;
+
 async function handleGeneatedFile(url) {
   let parts = url.split("/").slice(2);
-  let graph = Graph.fromString(parts[0]);
+
+  let graph;
+  let encodedGraph = parts[0];
+  if (encodedGraph === cachedEncodedGraph) {
+    graph = cachedGraph;
+  } else {
+    graph = Graph.fromString(encodedGraph);
+    cachedEncodedGraph = encodedGraph;
+    cachedGraph = graph;
+  }
+
   let index = parseInt(parts[1]);
   if (Number.isNaN(index)) {
     throw new Error("Bad node index: " + parts[1]);
