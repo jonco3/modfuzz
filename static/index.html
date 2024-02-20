@@ -2,14 +2,21 @@
 <h1>modfuzz</h1>
 
 <form>
-  <p>
-    <input type="checkbox" id="showGraph"></input>
+  <div>
+    <input type="checkbox" id="showGraph" checked></input>
     <label for="showGraph">Show graph</label>
-  </p>
+  </div>
+  <div>
+    <input type="checkbox" id="importMaps" checked></input>
+    <label for="importMaps">Generate importmaps</label>
+  </div>
 </form>
 
-<button id="start">Start</button>
-<button id="stop">Stop</button>
+<p>
+  <button id="start">Start</button>
+  <button id="step">Step</button>
+  <button id="stop">Stop</button>
+</p>
 
 <pre id="out"></pre>
 <div id="content" hidden></div>

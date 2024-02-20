@@ -7,9 +7,9 @@ import { Graph, Node, DFS } from "./graph.mjs";
 
 let state;
 
-let showGraph;
+let config;
 
-let testCount = 0;
+let testCount;
 let startTime;
 
 document.getElementById("start").onclick = start;
@@ -17,9 +17,18 @@ function start() {
   if (!state) {
     print("Starting");
     state = "running";
-    showGraph = document.getElementById("showGraph").checked;
     testCount = 0;
     startTime = performance.now();
+    runNextTest();
+  }
+}
+
+document.getElementById("step").onclick = step;
+function step() {
+  if (!state) {
+    print("Starting");
+    state = "step";
+    testCount = 0;
     runNextTest();
   }
 }
@@ -29,8 +38,22 @@ function stop() {
   if (state === "running") {
     state = undefined;
     print("Stopping");
+    print(`Ran ${testCount} tests`);
   }
 }
+
+const showGraphElement = document.getElementById("showGraph");
+showGraphElement.addEventListener("change", readConfig);
+const importMapsElement = document.getElementById("importMaps");
+importMapsElement.addEventListener("change", readConfig);
+
+function readConfig() {
+  config = {
+    showGraph: showGraphElement.checked,
+    importMaps: importMapsElement.checked
+  };
+}
+readConfig();
 
 function runNextTest() {
   if (!state) {
@@ -51,16 +74,22 @@ let loadFinished;
 
 function fuzz() {
   testCount++;
-  graph = buildModuleGraph(2 + rand(8));
 
-  let elapsed = (performance.now() - startTime) / 1000;
-  print(`Tests per second: ${(testCount / elapsed).toFixed(2)}`);
+  let options = {
+    pImportMap: config.importMaps ? 0.5 : 0.0
+  };
+  graph = buildModuleGraph(2 + rand(8), options);
 
-  if (showGraph) {
-    dumpGraph(graph);
+  if (testCount > 10) {
+    let elapsed = (performance.now() - startTime) / 1000;
+    print(`Tests per second: ${(testCount / elapsed).toFixed(2)}`);
   }
 
   let pageURL = graph.getRootURL();
+
+  if (config.showGraph) {
+    dumpGraph(graph);
+  }
 
   finished = false;
   error = undefined;
@@ -104,11 +133,11 @@ window.addEventListener("message", (event) => {
 function testFinished() {
   print(`Test finshed: ${result} ${error || ''}`);
 
-  runNextTest()
-}
-
-function getPageURL(htmlSource) {
-  return 'data:text/html,' + htmlSource;
+  if (state === "running") {
+    runNextTest()
+  } else {
+    state = undefined;
+  }
 }
 
 function loadPageInIFrame(url) {
@@ -134,6 +163,7 @@ function print(s) {
 function buildModuleGraph(size, maybeOptions) {
   let options = {
     pMultiParent: 1.0,
+    pImportMap: 0.0,
     pAsync: 0.0,
     pDynamic: 0.0,
     pCyclic: 0.0,
@@ -145,12 +175,22 @@ function buildModuleGraph(size, maybeOptions) {
   }
 
   const pMultiParent = options.pMultiParent / size;
+  const pImportMap = options.pImportMap;
   const pAsync = options.pAsync / size;
   const pDynamic = options.pDynamic / size;
   const pCyclic = options.pCyclic / size - 1;
   const pError = options.pError / size;
 
+  const pBareImport = 0.5;
+  const pStaticImportMap = 0.5
+
   let graph = new Graph();
+
+  let hasImportMap = choose(pImportMap);
+  if (hasImportMap) {
+    graph.setImportMapKind(choose(pStaticImportMap) ? "static" : "dynamic");
+  }
+
   for (let i = 0; i < size; i++) {
     let isRoot = i === 0;
     let isError = choose(pError);
@@ -160,7 +200,8 @@ function buildModuleGraph(size, maybeOptions) {
     if (!isRoot) {
       let parent = graph.getNode(rand(i));
       let isAsync = choose(pDynamic);
-      parent.addImport(node, isAsync);
+      let isBare = hasImportMap && choose(pBareImport);
+      parent.addImport(node, isAsync, isBare);
 
       while (choose(pMultiParent)) {
         parent = graph.getNode(rand(i));
@@ -213,10 +254,12 @@ function choose(p) {
 
 function dumpGraph(graph) {
   print(`Test ${testCount}: Graph of ${graph.size} nodes`);
+  print(`  Source: view-source:${document.location}${graph.getRootURL().substring(1)}`);
+  print(`  Import map: ${graph.importMapKind}`);
   graph.forEachNode(node => {
     print(`  Node ${node.index}${node.isAsync ? ' async' : ''}${node.isError ? ' error' : ''}`);
-    node.forEachOutgoingEdge((out, isAsync) => {
-      print(`   -> node ${out.index}${isAsync ? ' dynamic' : ''}`);
+    node.forEachOutgoingEdge((out, isAsync, isBare) => {
+      print(`   -> node ${out.index}${isAsync ? ' dynamic' : ''}${isBare ? ' bare' : ''}`);
     });
   });
 }
@@ -234,6 +277,12 @@ class AssertionError extends Error {
 }
 
 function checkModuleGraph(graph, root) {
+  if (config.showGraph) {
+    print("Load order: " + loadOrder.join(", "));
+    print("Load started: " + loadStarted.join(", "));
+    print("Load finished: " + loadFinished.join(", "));
+  }
+
   try {
     if (graph.hasAsyncEvaluation() || graph.hasCycle()) {
       // Difficult to work out expectations without implementing the algorithm
@@ -245,13 +294,13 @@ function checkModuleGraph(graph, root) {
   } catch (error) {
     print(error);
     if (error instanceof AssertionError) {
-      if (!showGraph) {
-        dumpGraph(graph);
-      }
       print("Graph check failed:");
-      print("Load order: " + loadOrder.join(", "));
-      print("Load started: " + loadStarted.join(", "));
-      print("Load finished: " + loadFinished.join(", "));
+      if (!config.showGraph) {
+        dumpGraph(graph);
+        print("Load order: " + loadOrder.join(", "));
+        print("Load started: " + loadStarted.join(", "));
+        print("Load finished: " + loadFinished.join(", "));
+      }
     }
     throw error;
   }

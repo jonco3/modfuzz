@@ -1,8 +1,9 @@
 export class Edge {
-  constructor(source, target, isAsync) {
+  constructor(source, target, isAsync, isBare) {
     this.source = source;
     this.target = target;
     this.isAsync = isAsync;
+    this.isBare = isBare;
   }
 }
 
@@ -24,23 +25,23 @@ export class Node {
   forEachOutgoingEdge(f) {
     for (let i = 0; i < this.outEdges.length; i++) {
       let edge = this.outEdges[i];
-      f(edge.target, edge.isAsync);
+      f(edge.target, edge.isAsync, edge.isBare);
     }
   }
 
   forEachIncomingEdge(f) {
     for (let i = 0; i < this.inEdges.length; i++) {
       let edge = this.inEdges[i];
-      f(edge.source, edge.isAsync);
+      f(edge.source, edge.isAsync, edge.isBare);
     }
   }
 
-  addImport(target, isAsync) {
+  addImport(target, isAsync, isBare) {
     if (this.cachedSource) {
       throw "Can't add import after source generated";
     }
 
-    let edge = new Edge(this, target, isAsync);
+    let edge = new Edge(this, target, isAsync, isBare);
     this.outEdges.push(edge);
     target.inEdges.push(edge);
 
@@ -50,10 +51,12 @@ export class Node {
   }
 
   toString() {
-    let flags = (this.isError ? "e" : "") + (this.isAsync ? "a" : "");
+    let flags = (this.isError ? "e" : "") +
+        (this.isAsync ? "a" : "") +
+        (this.isBare ? "b" : "");
     let parts = [flags, this.outEdges.length];
-    this.forEachOutgoingEdge((node, isAsync) => {
-      parts.push(`${isAsync ? "a" : ""}${node.index}`);
+    this.forEachOutgoingEdge((node, isAsync, isBare) => {
+      parts.push(`${isAsync ? "a" : ""}${isBare ? "b" : ""}${node.index}`);
     });
     return parts.join(",");
   }
@@ -62,28 +65,38 @@ export class Node {
     if (str === 0) {
       throw "Empty string";
     }
+
     let parts = str.split(",");
     if (parts.length < 2) {
       throw "Bad node size";
     }
+
     let flags = parts.shift();
     this.isAsync = flags.includes("a");
     this.isError = flags.includes("e");
+    this.isBare = flags.includes("b");
+
     let size = parseInt(parts.shift());
     if (Number.isNaN(size) || parts.length !== size) {
       throw "Bad node size";
     }
+
     for (let part of parts) {
       let isAsync = false;
       if (part.startsWith("a")) {
         isAsync = true;
         part = part.substring(1);
       }
+      let isBare = false;
+      if (part.startsWith("b")) {
+        isBare = true;
+        part = part.substring(1);
+      }
       let index = parseInt(part);
       if (Number.isNaN(index) || index >= graph.size) {
         throw "Bad node index";
       }
-      this.addImport(graph.getNode(index), isAsync);
+      this.addImport(graph.getNode(index), isAsync, isBare);
     }
   }
 }
@@ -91,10 +104,18 @@ export class Node {
 export class Graph {
   constructor() {
     this.nodes = [];
+    this.importMapKind = "none";
   }
 
   get size() {
     return this.nodes.length;
+  }
+
+  setImportMapKind(kind) {
+    if (kind !== "none" && kind !== "static" && kind !== "dynamic") {
+      throw "Bad import map kind";
+    }
+    this.importMapKind = kind;
   }
 
   addNode(node) {
@@ -175,7 +196,11 @@ export class Graph {
   }
 
   toString() {
-    let parts = [this.size];
+    let flags = ""
+    if (this.importMapKind !== "none") {
+      flags = this.importMapKind[0];
+    }
+    let parts = [flags, this.size];
     this.forEachNode((node) => {
       parts.push(node.toString());
     });
@@ -186,12 +211,25 @@ export class Graph {
     if (str === 0) {
       throw "Empty string";
     }
+
     let parts = str.split(";");
+    let flags = parts.shift();
+    let importMapKind = "none";
+    if (flags === "s") {
+      importMapKind = "static";
+    } else if (flags === "d") {
+      importMapKind = "dynamic";
+    } else if (flags !== "") {
+      throw "Bad graph flags";
+    }
+
     let size = parseInt(parts.shift());
     if (Number.isNaN(size) || parts.length !== size) {
       throw "Bad graph size";
     }
+
     let graph = new Graph();
+    graph.setImportMapKind(importMapKind);
     for (let i = 0; i < size; i++) {
       let isRoot = i === 0;
       graph.addNode(new Node(i, isRoot, false, false));
@@ -199,6 +237,7 @@ export class Graph {
     for (let i = 0; i < size; i++) {
       graph.getNode(i).initFromString(graph, parts[i]);
     }
+
     return graph;
   }
 }

@@ -108,11 +108,28 @@ function buildPageSource(graph, node) {
     throw "Not supported";
   }
 
-  node.forEachOutgoingEdge((out, isAsync) => {
+  if (graph.importMapKind === "static") {
+    lines.push(`<script type="importmap">${buildImportMap(graph)}</script>`);
+  } else if (graph.importMapKind === "dynamic") {
+    lines.push(`<script>`,
+               '  let script = document.createElement("script");',
+               '  script.type = "importmap";',
+               `  script.textContent = '${buildImportMap(graph)}';`,
+               '  document.head.appendChild(script);',
+               `</script>`);
+  }
+
+  node.forEachOutgoingEdge((out, isAsync, isBare) => {
     if (isAsync) {
       throw "Not supported";
     }
-    lines.push(`<script src="${graph.getNodeURL(out)}" type="module"></script>`);
+    let url;
+    if (isBare) {
+      url = out.index.toString();
+    } else {
+      url = graph.getNodeURL(out);
+    }
+    lines.push(`<script src="${url}" type="module"></script>`);
   });
 
   lines.push(`<script type="module">window.parent.postMessage("start ${node.index}", "*");</script>`);
@@ -123,6 +140,21 @@ function buildPageSource(graph, node) {
   lines.push(`<script type="module">window.parent.postMessage("loaded", "*");</script>`);
 
   return lines.join("\n");
+}
+
+function buildImportMap(graph) {
+  let imports = {};
+
+  // Add bare names for all modules.
+  for (let i = 1; i < graph.size; i++) {
+    let name = i.toString();
+    imports[name] = `./${name}.mjs`;
+  }
+
+  // TODO: Rearrange valid modules specifiers to test map is used.
+
+  let map = { imports };
+  return JSON.stringify(map);
 }
 
 function buildModuleSource(graph, node) {
@@ -173,6 +205,7 @@ http.createServer(async (req, res) => {
       stream = Readable.from("File not found: " + req.url,
                              {encoding: 'utf8'});
     } else {
+      console.log("Error: " + error);
       statusCode = 500;
       stream = Readable.from("Internal server error: " + error,
                              {encoding: 'utf8'});
