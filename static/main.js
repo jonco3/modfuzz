@@ -96,15 +96,7 @@ function testFinished() {
 }
 
 function getPageURL(htmlSource) {
-  return `data:text/html,
-    <!DOCTYPE html>
-    <pre id="out"></pre>
-    <script>
-      window.addEventListener("error", (event) => {
-        window.parent.postMessage("error " + event.message, "*");
-      });
-    </script>
-  ` + htmlSource;
+  return 'data:text/html,' + htmlSource;
 }
 
 function loadPageInIFrame(url) {

@@ -98,7 +98,15 @@ export class Node {
       throw "Can't get page source for non-root module";
     }
 
-    let lines = [];
+    let lines = [
+      '<!DOCTYPE html>',
+      '<pre id="out"></pre>',
+      '<script>',
+      '  window.addEventListener("error", (event) => {',
+      '    window.parent.postMessage("error " + event.message, "*");',
+      '  });',
+      '</script>'
+    ];
 
     if (this.isError) {
       lines.push(`<script>throw new Error("${this.moduleName}");</script>`);
