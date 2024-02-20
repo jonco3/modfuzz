@@ -48,7 +48,7 @@ function fuzz() {
 
   dumpGraph(graph);
 
-  let pageURL = getPageURL(graph.root.buildPageSource());
+  let pageURL = graph.getRootURL();
 
   finished = false;
   error = undefined;

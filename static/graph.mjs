@@ -21,12 +21,6 @@ export class Node {
     return "module" + this.index;
   }
 
-  getModuleURL() {
-    // todo: not like this
-    let source = `/* ${this.index} */ ${this.getModuleSource()}`;
-    return `data:text/javascript;base64,${btoa(source)}`;
-  }
-
   forEachOutgoingEdge(f) {
     for (let i = 0; i < this.outEdges.length; i++) {
       let edge = this.outEdges[i];
@@ -53,84 +47,6 @@ export class Node {
     if (isAsync) {
       this.isAsync = true;
     }
-  }
-
-  getModuleSource() {
-    if (!this.cachedSource) {
-      this.cachedSource = this.buildModuleSource();
-    }
-
-    return this.cachedSource;
-  }
-
-  buildModuleSource() {
-    if (this.isRoot) {
-      throw "Can't get module source for root page";
-    }
-
-    let lines = [
-      `window.parent.postMessage("start ${this.index}", "*");`
-    ];
-
-    if (this.isError) {
-      lines.push(`throw new Error("${this.moduleName}");`);
-    }
-
-    if (this.isAsync) {
-      lines.push(`await 0;`);
-    }
-
-    this.forEachOutgoingEdge((out, isAsync) => {
-      if (isAsync) {
-        lines.push(`await import("${out.getModuleURL()}");`);
-      } else {
-        lines.push(`import {} from "${out.getModuleURL()}";`);
-      }
-    });
-
-    lines.push(`window.parent.postMessage("finish ${this.index}", "*");`);
-
-    return lines.join("\n");
-  }
-
-  buildPageSource() {
-    if (!this.isRoot) {
-      throw "Can't get page source for non-root module";
-    }
-
-    let lines = [
-      '<!DOCTYPE html>',
-      '<pre id="out"></pre>',
-      '<script>',
-      '  window.addEventListener("error", (event) => {',
-      '    window.parent.postMessage("error " + event.message, "*");',
-      '  });',
-      '</script>'
-    ];
-
-    if (this.isError) {
-      lines.push(`<script>throw new Error("${this.moduleName}");</script>`);
-    }
-
-    if (this.isAsync) {
-      throw "Not supported";
-    }
-
-    this.forEachOutgoingEdge((out, isAsync) => {
-      if (isAsync) {
-        throw "Not supported";
-      }
-      lines.push(`<script src="${out.getModuleURL()}" type="module"></script>`);
-    });
-
-    lines.push(`<script type="module">window.parent.postMessage("start ${this.index}", "*");</script>`);
-
-    // todo: async imports would come here
-    
-    lines.push(`<script type="module">window.parent.postMessage("finish ${this.index}", "*");</script>`);
-    lines.push(`<script type="module">window.parent.postMessage("loaded", "*");</script>`);
-
-    return lines.join("\n");
   }
 
   toString() {
@@ -248,6 +164,14 @@ export class Graph {
     }
 
     return result;
+  }
+
+  getRootURL() {
+    return this.getNodeURL(this.root);
+  }
+
+  getNodeURL(node) {
+    return `/graph/${this.toString()}/${node.index}`;
   }
 
   toString() {
