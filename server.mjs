@@ -51,7 +51,7 @@ async function handleStaticFile(url)  {
 let cachedEncodedGraph;
 let cachedGraph;
 
-async function handleGeneatedFile(url) {
+async function handleGeneratedFile(url) {
   let parts = url.split("/").slice(2);
 
   let graph;
@@ -213,7 +213,7 @@ http.createServer(async (req, res) => {
 
   try {
     if (req.url.startsWith('/graph/')) {
-      ({ statusCode, mimeType, stream } = await handleGeneatedFile(req.url));
+      ({ statusCode, mimeType, stream } = await handleGeneratedFile(req.url));
     } else {
       ({ statusCode, mimeType, stream } = await handleStaticFile(req.url));
     }
