@@ -118,8 +118,11 @@ window.addEventListener("message", (event) => {
     }
     loadFinished[index] = true;
   } else if (reason === "loaded") {
-    checkModuleGraph(graph);
-    result = "OK";
+    if (checkModuleGraph(graph)) {
+      result = "OK";
+    } else {
+      result = "FAIL";
+    }
     testFinished(result, error);
   } else if (reason === "error") {
     result = "ERROR";
@@ -130,10 +133,10 @@ window.addEventListener("message", (event) => {
   }
 });
 
-function testFinished() {
+function testFinished(result, error) {
   print(`Test finshed: ${result} ${error || ''}`);
 
-  if (state === "running") {
+  if (state === "running" && result == "OK") {
     runNextTest()
   } else {
     state = undefined;
@@ -291,16 +294,18 @@ function checkModuleGraph(graph, root) {
     } else {
       fullGraphCheck(graph, root);
     }
+    return true;
   } catch (error) {
     print(error);
     if (error instanceof AssertionError) {
-      print("Graph check failed:");
+      print("Graph check failed");
       if (!config.showGraph) {
         dumpGraph(graph);
         print("Load order: " + loadOrder.join(", "));
         print("Load started: " + loadStarted.join(", "));
         print("Load finished: " + loadFinished.join(", "));
       }
+      return false;
     }
     throw error;
   }

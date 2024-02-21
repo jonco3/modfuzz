@@ -148,7 +148,7 @@ function buildImportMap(graph) {
   // Add bare names for all modules.
   for (let i = 1; i < graph.size; i++) {
     let name = i.toString();
-    imports[name] = `./${name}.mjs`;
+    imports[name] = `./${name}`;
   }
 
   // TODO: Rearrange valid modules specifiers to test map is used.
@@ -174,8 +174,13 @@ function buildModuleSource(graph, node) {
     lines.push(`await 0;`);
   }
 
-  node.forEachOutgoingEdge((out, isAsync) => {
-    let url = graph.getNodeURL(out);
+  node.forEachOutgoingEdge((out, isAsync, isBare) => {
+    let url;
+    if (isBare) {
+      url = out.index.toString();
+    } else {
+      url = graph.getNodeURL(out);
+    }
     if (isAsync) {
       lines.push(`await import("${url}");`);
     } else {
