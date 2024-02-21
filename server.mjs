@@ -59,7 +59,7 @@ async function handleGeneratedFile(url) {
   if (encodedGraph === cachedEncodedGraph) {
     graph = cachedGraph;
   } else {
-    graph = Graph.fromString(encodedGraph);
+    graph = Graph.fromString(decodeURI(encodedGraph));
     cachedEncodedGraph = encodedGraph;
     cachedGraph = graph;
   }
@@ -230,7 +230,7 @@ http.createServer(async (req, res) => {
     }
   }
 
-  console.log(`${req.method} ${req.url} => ${statusCode}`);
+  console.log(`${req.method} ${decodeURI(req.url)} => ${statusCode}`);
   res.writeHead(statusCode, {
     "Content-Type": mimeType,
     "Access-Control-Allow-Origin": "*"
