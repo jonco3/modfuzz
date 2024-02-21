@@ -3,7 +3,7 @@
 //  - root node is html
 //  - multiple parents
 
-import { Graph, Node, DFS } from "./graph.mjs";
+import { Graph, Node, Edge, DFS } from "./graph.mjs";
 
 let state;
 
@@ -88,6 +88,7 @@ function fuzz() {
   let pageURL = graph.getRootURL();
 
   if (config.showGraph) {
+    print(`Test ${testCount}:`);
     dumpGraph(graph);
   }
 
@@ -248,7 +249,6 @@ function addImport(graph, node, pDynamic, pBareImport) {
   parent.addImport(node, {isAsync, isBare});
 }
 
-
 // Random integer in range 0 to n exclusive.
 // todo: replace with deterministic RNG and expose seed
 function rand(n) {
@@ -261,15 +261,24 @@ function choose(p) {
 }
 
 function dumpGraph(graph) {
-  print(`Test ${testCount}: Graph of ${graph.size} nodes`);
+  print(`Graph of ${graph.size} nodes${dumpFlags(graph, Graph.flagNames)}`);
   print(`  Source: view-source:${document.location}${graph.getRootURL().substring(1)}`);
-  print(`  Import map: ${graph.importMapKind}`);
   graph.forEachNode(node => {
-    print(`  Node ${node.index}${node.isAsync ? ' async' : ''}${node.isError ? ' error' : ''}`);
-    node.forEachOutgoingEdge((out, isAsync, isBare) => {
-      print(`   -> node ${out.index}${isAsync ? ' dynamic' : ''}${isBare ? ' bare' : ''}`);
+    print(`  Node ${node.index}${dumpFlags(node, Node.flagNames)}`);
+    node.outEdges.forEach(edge => {
+      print(`   -> node ${edge.target.index}${dumpFlags(edge, Edge.flagNames)}`);
     });
   });
+}
+
+function dumpFlags(obj, names) {
+  let flags = "";
+  for (name of names) {
+    if (obj[name]) {
+      flags += " " + name;
+    }
+  }
+  return flags;
 }
 
 function initTestState(graph) {
