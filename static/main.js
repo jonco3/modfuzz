@@ -78,7 +78,7 @@ function fuzz() {
   let options = {
     pImportMap: config.importMaps ? 0.5 : 0.0
   };
-  graph = buildModuleGraph(2 + rand(8), options);
+  graph = buildScriptGraph(2 + rand(8), options);
 
   if (testCount > 10) {
     let elapsed = (performance.now() - startTime) / 1000;
@@ -164,8 +164,9 @@ function print(s) {
     document.getElementById("out").textContent += s + "\n";
 }
 
-function buildModuleGraph(size, maybeOptions) {
+function buildScriptGraph(size, maybeOptions) {
   let options = {
+    pModule: 0.75,
     pMultiParent: 1.0,
     pImportMap: 0.0,
     pAsync: 0.0,
@@ -178,6 +179,7 @@ function buildModuleGraph(size, maybeOptions) {
     Object.assign(options, maybeOptions);
   }
 
+  const pModule = options.pModule; // Per script setting.
   const pMultiParent = options.pMultiParent / size;
   const pImportMap = options.pImportMap;
   const pAsync = options.pAsync / size;
@@ -189,6 +191,10 @@ function buildModuleGraph(size, maybeOptions) {
   const pStaticImportMap = 0.5
 
   let graph = new Graph();
+
+  // List of nodes that can import other nodes, so the root plus all module
+  // scripts.
+  let importers = [];
 
   let hasImportMap = choose(pImportMap);
   if (hasImportMap) {
@@ -202,17 +208,33 @@ function buildModuleGraph(size, maybeOptions) {
   let pBareImport = hasImportMap ? pBareImportGivenImportMap : 0.0;
 
   for (let i = 0; i < size; i++) {
-    let flags = { isError: choose(pError), isAsync: choose(pAsync) };
+    let flags = {
+      isModule: i === 0 ? false : choose(pModule),
+      isError: choose(pError),
+      isAsync: choose(pAsync)
+    };
     let node = new Node(i, flags);
     graph.addNode(node);
-    if (!node.isRoot) {
-      addImport(graph, node, pDynamic, pBareImport);
-      while (choose(pMultiParent)) {
-        addImport(graph, node, pDynamic, pBareImport);
-      }
+
+    if (node.isRoot) {
+      importers.push(node);
+      continue;
     }
 
-    if (!node.isRoot && choose(pCyclic)) {
+    if (!node.isModule) {
+      // Classic scripts can only by loaded by the page.
+      graph.root.addImport(node);
+      continue;
+    }
+
+    addImport(importers, node, pDynamic, pBareImport);
+    while (choose(pMultiParent)) {
+      addImport(importers, node, pDynamic, pBareImport);
+    }
+
+    importers.push(node);
+
+    if (choose(pCyclic)) {
       // Choose an ancestor to import.
 
       let ancestors = [];
@@ -242,8 +264,8 @@ function buildModuleGraph(size, maybeOptions) {
   return graph;
 }
 
-function addImport(graph, node, pDynamic, pBareImport) {
-  let parent = graph.getNode(rand(node.index));
+function addImport(importers, node, pDynamic, pBareImport) {
+  let parent = importers[rand(importers.length)];
   let isAsync = choose(pDynamic);
   let isBare = choose(pBareImport);
   parent.addImport(node, {isAsync, isBare});

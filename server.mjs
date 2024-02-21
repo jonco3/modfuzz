@@ -78,7 +78,7 @@ async function handleGeneatedFile(url) {
     data = buildPageSource(graph, node);
   } else {
     mimeType = "text/javascript";
-    data = buildModuleSource(graph, node);
+    data = buildScriptSource(graph, node);
   }
 
   let stream = Readable.from(data, {encoding: 'utf8'});
@@ -87,7 +87,7 @@ async function handleGeneatedFile(url) {
 
 function buildPageSource(graph, node) {
   if (!node.isRoot) {
-    throw "Can't get page source for non-root module";
+    throw "Can't get page source for non-root script";
   }
 
   let lines = [
@@ -129,7 +129,13 @@ function buildPageSource(graph, node) {
     } else {
       url = graph.getNodeURL(out);
     }
-    lines.push(`<script src="${url}" type="module"></script>`);
+    let options;
+    if (out.isModule) {
+      options = 'type="module"';
+    } else {
+      options = 'defer';
+    }
+    lines.push(`<script src="${url}" ${options}></script>`);
   });
 
   lines.push(`<script type="module">window.parent.postMessage("start ${node.index}", "*");</script>`);
@@ -157,9 +163,9 @@ function buildImportMap(graph) {
   return JSON.stringify(map);
 }
 
-function buildModuleSource(graph, node) {
+function buildScriptSource(graph, node) {
   if (node.isRoot) {
-    throw "Can't get module source for root page";
+    throw "Can't get script source for root page";
   }
 
   let lines = [
