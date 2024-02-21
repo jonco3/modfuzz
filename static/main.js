@@ -184,7 +184,7 @@ function buildModuleGraph(size, maybeOptions) {
   const pCyclic = options.pCyclic / size - 1;
   const pError = options.pError / size;
 
-  const pBareImport = 0.5;
+  const pBareImportGivenImportMap = 0.5;
   const pStaticImportMap = 0.5
 
   let graph = new Graph();
@@ -193,27 +193,20 @@ function buildModuleGraph(size, maybeOptions) {
   if (hasImportMap) {
     graph.setImportMapKind(choose(pStaticImportMap) ? "static" : "dynamic");
   }
+  let pBareImport = hasImportMap ? pBareImportGivenImportMap : 0.0;
 
   for (let i = 0; i < size; i++) {
-    let isRoot = i === 0;
-    let isError = choose(pError);
-    let isAsync = choose(pAsync);
-    let node = new Node(i, isRoot, isError, isAsync);
+    let flags = { isError: choose(pError), isAsync: choose(pAsync) };
+    let node = new Node(i, flags);
     graph.addNode(node);
-    if (!isRoot) {
-      let parent = graph.getNode(rand(i));
-      let isAsync = choose(pDynamic);
-      let isBare = hasImportMap && choose(pBareImport);
-      parent.addImport(node, isAsync, isBare);
-
+    if (!node.isRoot) {
+      addImport(graph, node, pDynamic, pBareImport);
       while (choose(pMultiParent)) {
-        parent = graph.getNode(rand(i));
-        isAsync = choose(pDynamic);
-        parent.addImport(node, isAsync);
+        addImport(graph, node, pDynamic, pBareImport);
       }
     }
 
-    if (!isRoot && choose(pCyclic)) {
+    if (!node.isRoot && choose(pCyclic)) {
       // Choose an ancestor to import.
 
       let ancestors = [];
@@ -227,7 +220,7 @@ function buildModuleGraph(size, maybeOptions) {
       }
 
       let ancestor = ancestors[rand(ancestors.length)];
-      node.addImport(ancestor, false);
+      node.addImport(ancestor, 0.0, pBareImport);
 
       // Introducing a cycle though a dynamic import can livelock, so turn off
       // async evaluation on path to ancestor.
@@ -238,11 +231,18 @@ function buildModuleGraph(size, maybeOptions) {
         node = edge.source;
       } while (node !== ancestor)
     }
-
   }
 
   return graph;
 }
+
+function addImport(graph, node, pDynamic, pBareImport) {
+  let parent = graph.getNode(rand(node.index));
+  let isAsync = choose(pDynamic);
+  let isBare = choose(pBareImport);
+  parent.addImport(node, {isAsync, isBare});
+}
+
 
 // Random integer in range 0 to n exclusive.
 // todo: replace with deterministic RNG and expose seed

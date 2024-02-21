@@ -1,21 +1,31 @@
 export class Edge {
-  constructor(source, target, isAsync, isBare) {
+  static flagNames = ['isAsync', 'isBare'];
+  static flagEncodeMap = makeFlagEncodeMap(this.flagNames);
+  static flagDecodeMap = invertMap(this.flagEncodeMap);
+
+  constructor(source, target, flags) {
     this.source = source;
     this.target = target;
-    this.isAsync = isAsync;
-    this.isBare = isBare;
+    this.isAsync = false;
+    this.isBare = false;
+    initFlags(this, flags, Edge.flagNames);
   }
 }
 
 export class Node {
-  constructor(index, isRoot, isError, isAsync) {
+  static flagNames = ['isError', 'isAsync'];
+  static flagEncodeMap = makeFlagEncodeMap(this.flagNames);
+  static flagDecodeMap = invertMap(this.flagEncodeMap);
+
+  constructor(index, flags) {
     this.index = index;
-    this.isRoot = isRoot;
-    this.isError = isError;
-    this.isAsync = isAsync;
     this.inEdges = [];
     this.outEdges = [];
     this.cachedSource = undefined;
+    this.isRoot = index === 0;
+    this.isError = false;
+    this.isAsync = false;
+    initFlags(this, flags, Node.flagNames);
   }
 
   get moduleName() {
@@ -36,24 +46,22 @@ export class Node {
     }
   }
 
-  addImport(target, isAsync, isBare) {
+  addImport(target, edgeFlags) {
     if (this.cachedSource) {
       throw "Can't add import after source generated";
     }
 
-    let edge = new Edge(this, target, isAsync, isBare);
+    let edge = new Edge(this, target, edgeFlags);
     this.outEdges.push(edge);
     target.inEdges.push(edge);
 
-    if (isAsync) {
+    if (edge.isAsync) {
       this.isAsync = true;
     }
   }
 
   toString() {
-    let flags = (this.isError ? "e" : "") +
-        (this.isAsync ? "a" : "") +
-        (this.isBare ? "b" : "");
+    let flags = encodeFlags(this, Node.flagEncodeMap);
     let parts = [flags, this.outEdges.length];
     this.forEachOutgoingEdge((node, isAsync, isBare) => {
       parts.push(`${isAsync ? "a" : ""}${isBare ? "b" : ""}${node.index}`);
@@ -71,10 +79,8 @@ export class Node {
       throw "Bad node size";
     }
 
-    let flags = parts.shift();
-    this.isAsync = flags.includes("a");
-    this.isError = flags.includes("e");
-    this.isBare = flags.includes("b");
+    let {flags} = decodeFlags(parts.shift(), Node.flagDecodeMap);
+    initFlags(this, flags, Node.flagNames);
 
     let size = parseInt(parts.shift());
     if (Number.isNaN(size) || parts.length !== size) {
@@ -82,21 +88,13 @@ export class Node {
     }
 
     for (let part of parts) {
-      let isAsync = false;
-      if (part.startsWith("a")) {
-        isAsync = true;
-        part = part.substring(1);
-      }
-      let isBare = false;
-      if (part.startsWith("b")) {
-        isBare = true;
-        part = part.substring(1);
-      }
-      let index = parseInt(part);
+      let {flags, remain} = decodeFlags(part, Edge.flagDecodeMap);
+      let index = parseInt(remain);
       if (Number.isNaN(index) || index >= graph.size) {
-        throw "Bad node index";
+        throw "Bad node spec: " + part;
       }
-      this.addImport(graph.getNode(index), isAsync, isBare);
+
+      this.addImport(graph.getNode(index), flags);
     }
   }
 }
@@ -231,8 +229,7 @@ export class Graph {
     let graph = new Graph();
     graph.setImportMapKind(importMapKind);
     for (let i = 0; i < size; i++) {
-      let isRoot = i === 0;
-      graph.addNode(new Node(i, isRoot, false, false));
+      graph.addNode(new Node(i));
     }
     for (let i = 0; i < size; i++) {
       graph.getNode(i).initFromString(graph, parts[i]);
@@ -240,6 +237,73 @@ export class Graph {
 
     return graph;
   }
+}
+
+function makeFlagEncodeMap(names) {
+  // Map from names like 'isFoo' to initial letter of actual name 'f'.
+  let map = {};
+  for (let name of names) {
+    if (name.length <= 2 || !name.startsWith('is')) {
+      throw new Error("Bad flag name: " + name);
+    }
+    let char = name.charAt(2).toLowerCase();
+    if (map[char]) {
+      throw new Error(`Duplicate flag char ${char} for flags: ${names}`);
+    }
+    map[name] = char;
+  }
+  return map;
+}
+
+function invertMap(map) {
+  let result = {}
+  for (let key in map) {
+    let value = map[key];
+    if (value in result) {
+      throw new Error(`Duplicate key ${value} when inverting map`);
+    }
+    result[value] = key;
+  }
+  return result;
+}
+
+function initFlags(obj, flags, names) {
+  for (let name in flags) {
+    if (!names.includes(name)) {
+      throw new Error(`Unknown flag name: ${name}`);
+    }
+    obj[name] = flags[name];
+  }
+}
+
+function encodeFlags(obj, map) {
+  let flags = "";
+  for (let name in map) {
+    if (obj[name]) {
+      flags += map[name];
+    }
+  }
+  return flags;
+}
+
+function decodeFlags(str, map) {
+  let flags = {};
+  while (str.length != 0) {
+    let first = str.charAt(0);
+    if (!first.match(/[a-z]/)) {
+      break;
+    }
+
+    let flagName = map[first];
+    if (!flagName) {
+      throw new Error(`Unknown flag '${first}' for ${JSON.stringify(map)}`);
+    }
+
+    flags[flagName] = true;
+    str = str.substring(1);
+  }
+
+  return { flags, remain: str };
 }
 
 export function DFS(node, post, filter = () => true, visited = new Set()) {
