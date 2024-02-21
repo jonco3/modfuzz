@@ -82,7 +82,18 @@ async function handleGeneratedFile(url) {
   }
 
   let stream = Readable.from(data, {encoding: 'utf8'});
+
+  if (node.isSlow) {
+    await sleep(1);
+  }
+
   return { statusCode: 200, mimeType, stream };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function buildPageSource(graph, node) {
@@ -136,13 +147,11 @@ function buildPageSource(graph, node) {
     } else {
       url = graph.getNodeURL(out);
     }
-    let options;
+    let options = '';
     if (out.isModule) {
-      options = 'type="module"';
-    } else {
-      options = 'defer';
+      options = ' type="module"';
     }
-    lines.push(`<script src="${url}" ${options}></script>`);
+    lines.push(`<script src="${url}"${options}></script>`);
   });
 
   lines.push(`<script type="module">window.parent.postMessage("start ${node.index}", "*");</script>`);

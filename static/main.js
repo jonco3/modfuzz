@@ -172,20 +172,25 @@ function buildScriptGraph(size, maybeOptions) {
     pAsync: 0.0,
     pDynamic: 0.0,
     pCyclic: 0.0,
-    pError: 0.0
+    pError: 0.0,
+    pSlow: 0.25
   };
 
   if (maybeOptions) {
     Object.assign(options, maybeOptions);
   }
 
-  const pModule = options.pModule; // Per script setting.
+  // Per graph settings.
   const pMultiParent = options.pMultiParent / size;
   const pImportMap = options.pImportMap;
   const pAsync = options.pAsync / size;
   const pDynamic = options.pDynamic / size;
   const pCyclic = options.pCyclic / size - 1;
   const pError = options.pError / size;
+
+  // Per script setting.
+  const pModule = options.pModule;
+  const pSlow = options.pSlow;
 
   const pBareImportGivenImportMap = 0.5;
   const pStaticImportMap = 0.5
@@ -208,18 +213,21 @@ function buildScriptGraph(size, maybeOptions) {
   let pBareImport = hasImportMap ? pBareImportGivenImportMap : 0.0;
 
   for (let i = 0; i < size; i++) {
-    let flags = {
-      isModule: i === 0 ? false : choose(pModule),
-      isError: choose(pError),
-      isAsync: choose(pAsync)
-    };
+    let flags;
+    if (i === 0) {
+      flags = {
+        isModule: true  // The page has an inline module.
+      };
+    } else {
+      flags = {
+        isModule: choose(pModule),
+        isError: choose(pError),
+        isAsync: choose(pAsync),
+        isSlow: choose(pSlow)
+      };
+    }
     let node = new Node(i, flags);
     graph.addNode(node);
-
-    if (node.isRoot) {
-      importers.push(node);
-      continue;
-    }
 
     if (!node.isModule) {
       // Classic scripts can only by loaded by the page.
@@ -227,9 +235,11 @@ function buildScriptGraph(size, maybeOptions) {
       continue;
     }
 
-    addImport(importers, node, pDynamic, pBareImport);
-    while (choose(pMultiParent)) {
+    if (importers.length !== 0) {
       addImport(importers, node, pDynamic, pBareImport);
+      while (choose(pMultiParent)) {
+        addImport(importers, node, pDynamic, pBareImport);
+      }
     }
 
     importers.push(node);
@@ -369,10 +379,19 @@ function fullGraphCheck(graph, root) {
   let expectedStart = new Array(graph.size).fill(false);
   let expectedEnd = new Array(graph.size).fill(false);
 
+  // First, all classic scripts load.
+  graph.root.forEachOutgoingEdge(node => {
+    if (!node.isModule) {
+      expectedOrder.push(node.index);
+      expectedStart[node.index] = true;
+      expectedEnd[node.index] = !node.isError;
+    }
+  });
+
   let failed = false;
   DFS(graph.root,
       node => {
-        if (failed) {
+        if (failed || !node.isModule) {
           return;
         }
 

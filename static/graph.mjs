@@ -17,7 +17,7 @@ export class Edge {
 }
 
 export class Node {
-  static flagNames = ['isModule', 'isError', 'isAsync'];
+  static flagNames = ['isModule', 'isError', 'isAsync', 'isSlow'];
   static flagEncodeMap = makeFlagEncodeMap(this.flagNames);
   static flagDecodeMap = invertMap(this.flagEncodeMap);
 
