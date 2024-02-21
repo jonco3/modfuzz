@@ -191,8 +191,13 @@ function buildModuleGraph(size, maybeOptions) {
 
   let hasImportMap = choose(pImportMap);
   if (hasImportMap) {
-    graph.setImportMapKind(choose(pStaticImportMap) ? "static" : "dynamic");
+    if (choose(pStaticImportMap)) {
+      graph.hasStaticImportMap = true;
+    } else {
+      graph.hasDynamicImportMap = true;
+    }
   }
+
   let pBareImport = hasImportMap ? pBareImportGivenImportMap : 0.0;
 
   for (let i = 0; i < size; i++) {

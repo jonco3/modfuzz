@@ -108,9 +108,9 @@ function buildPageSource(graph, node) {
     throw "Not supported";
   }
 
-  if (graph.importMapKind === "static") {
+  if (graph.hasStaticImportMap) {
     lines.push(`<script type="importmap">${buildImportMap(graph)}</script>`);
-  } else if (graph.importMapKind === "dynamic") {
+  } else if (graph.hasDynamicImportMap) {
     lines.push(`<script>`,
                '  let script = document.createElement("script");',
                '  script.type = "importmap";',

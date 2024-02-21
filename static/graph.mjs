@@ -10,6 +10,10 @@ export class Edge {
     this.isBare = false;
     initFlags(this, flags, Edge.flagNames);
   }
+
+  toString() {
+    return encodeFlags(this, Edge.flagEncodeMap) + this.target.index.toString();
+  }
 }
 
 export class Node {
@@ -63,8 +67,8 @@ export class Node {
   toString() {
     let flags = encodeFlags(this, Node.flagEncodeMap);
     let parts = [flags, this.outEdges.length];
-    this.forEachOutgoingEdge((node, isAsync, isBare) => {
-      parts.push(`${isAsync ? "a" : ""}${isBare ? "b" : ""}${node.index}`);
+    this.outEdges.forEach(edge => {
+      parts.push(edge.toString());
     });
     return parts.join(",");
   }
@@ -100,20 +104,22 @@ export class Node {
 }
 
 export class Graph {
-  constructor() {
+  static flagNames = ['hasStaticImportMap', 'hasDynamicImportMap'];
+  static flagEncodeMap = makeFlagEncodeMap(this.flagNames);
+  static flagDecodeMap = invertMap(this.flagEncodeMap);
+
+  constructor(flags) {
     this.nodes = [];
-    this.importMapKind = "none";
+    this.hasStaticImportMap = false;
+    this.hasDynamicImportMap = false;
+    initFlags(this, flags, Graph.flagNames);
+    if (this.hasStaticImportMap && this.hasDynamicImportMap) {
+      throw new Error("Can't have both kinds of importmap");
+    }
   }
 
   get size() {
     return this.nodes.length;
-  }
-
-  setImportMapKind(kind) {
-    if (kind !== "none" && kind !== "static" && kind !== "dynamic") {
-      throw "Bad import map kind";
-    }
-    this.importMapKind = kind;
   }
 
   addNode(node) {
@@ -194,10 +200,7 @@ export class Graph {
   }
 
   toString() {
-    let flags = ""
-    if (this.importMapKind !== "none") {
-      flags = this.importMapKind[0];
-    }
+    let flags = encodeFlags(this, Graph.flagEncodeMap);
     let parts = [flags, this.size];
     this.forEachNode((node) => {
       parts.push(node.toString());
@@ -211,23 +214,14 @@ export class Graph {
     }
 
     let parts = str.split(";");
-    let flags = parts.shift();
-    let importMapKind = "none";
-    if (flags === "s") {
-      importMapKind = "static";
-    } else if (flags === "d") {
-      importMapKind = "dynamic";
-    } else if (flags !== "") {
-      throw "Bad graph flags";
-    }
+    let {flags} = decodeFlags(parts.shift(), Graph.flagDecodeMap);
 
     let size = parseInt(parts.shift());
     if (Number.isNaN(size) || parts.length !== size) {
       throw "Bad graph size";
     }
 
-    let graph = new Graph();
-    graph.setImportMapKind(importMapKind);
+    let graph = new Graph(flags);
     for (let i = 0; i < size; i++) {
       graph.addNode(new Node(i));
     }
@@ -240,13 +234,19 @@ export class Graph {
 }
 
 function makeFlagEncodeMap(names) {
-  // Map from names like 'isFoo' to initial letter of actual name 'f'.
+  // Map from names like 'isFoo' or 'hasFoo' to initial letter of actual name 'f'.
   let map = {};
   for (let name of names) {
-    if (name.length <= 2 || !name.startsWith('is')) {
+    let index = 0;
+    if (name.startsWith('is')) {
+      index = 2;
+    } else if (name.startsWith('has')) {
+      index = 3;
+    }
+    if (index === name.length) {
       throw new Error("Bad flag name: " + name);
     }
-    let char = name.charAt(2).toLowerCase();
+    let char = name.charAt(index).toLowerCase();
     if (map[char]) {
       throw new Error(`Duplicate flag char ${char} for flags: ${names}`);
     }
