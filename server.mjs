@@ -108,21 +108,28 @@ function buildPageSource(graph, node) {
     throw "Not supported";
   }
 
-  if (graph.hasStaticImportMap) {
-    lines.push(`<script type="importmap">${buildImportMap(graph)}</script>`);
-  } else if (graph.hasDynamicImportMap) {
-    lines.push(`<script>`,
-               '  let script = document.createElement("script");',
-               '  script.type = "importmap";',
-               `  script.textContent = '${buildImportMap(graph)}';`,
-               '  document.head.appendChild(script);',
-               `</script>`);
-  }
+  let sawModule = false;
 
   node.forEachOutgoingEdge((out, isAsync, isBare) => {
     if (isAsync) {
       throw "Not supported";
     }
+
+    // Add any import map before the first module.
+    if (out.isModule && !sawModule) {
+      sawModule = true;
+      if (graph.hasStaticImportMap) {
+        lines.push(`<script type="importmap">${buildImportMap(graph)}</script>`);
+      } else if (graph.hasDynamicImportMap) {
+        lines.push(`<script>`,
+                   '  let script = document.createElement("script");',
+                   '  script.type = "importmap";',
+                   `  script.textContent = '${buildImportMap(graph)}';`,
+                   '  document.head.appendChild(script);',
+                   `</script>`);
+      }
+    }
+
     let url;
     if (isBare) {
       url = out.index.toString();
