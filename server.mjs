@@ -196,6 +196,11 @@ function buildScriptSource(graph, node) {
     lines.push(`await 0;`);
   }
 
+  if (node.isModule) {
+    lines.push(`export default ${node.index};`);
+  }
+
+  let index = 0;
   node.forEachOutgoingEdge((out, isAsync, isBare) => {
     let url;
     if (isBare) {
@@ -203,11 +208,18 @@ function buildScriptSource(graph, node) {
     } else {
       url = graph.getNodeURL(out);
     }
+
+    // Import the module and check the default export is what we expect.
+    let name = "default_" + index;
     if (isAsync) {
-      lines.push(`await import("${url}");`);
+      lines.push(`let ${name} = await import("${url}").default;`);
     } else {
-      lines.push(`import {} from "${url}";`);
+      lines.push(`import { default as ${name} } from "${url}";`);
     }
+    lines.push(`if (${name} !== ${out.index}) {`);
+    lines.push(`  throw "Unexpected export " + ${name} + " from module ${out.index}";`);
+    lines.push(`}`);
+    index++;
   });
 
   lines.push(`window.parent.postMessage("finish ${node.index}", "*");`);
