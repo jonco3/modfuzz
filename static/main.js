@@ -12,34 +12,50 @@ let config = {};
 let testCount;
 let startTime;
 
-document.getElementById("start").onclick = start;
+let startButton = document.getElementById("start");
+let stepButton = document.getElementById("step");
+let stopButton = document.getElementById("stop");
+
+startButton.onclick = start;
 function start() {
-  if (!state) {
-    print("Starting");
-    state = "running";
-    testCount = 0;
-    startTime = performance.now();
-    runNextTest();
+  if (state) {
+    return;
   }
+
+  state = "running";
+  startButton.disabled = true;
+  stepButton.disabled = true;
+  stopButton.disabled = false;
+
+  testCount = 0;
+  startTime = performance.now();
+  runNextTest();
 }
 
-document.getElementById("step").onclick = step;
+stepButton.onclick = step;
 function step() {
-  if (!state) {
-    print("Starting");
-    state = "step";
-    testCount = 0;
-    runNextTest();
+  if (state) {
+    return;
   }
+
+  state = "step";
+  testCount = 0;
+  runNextTest();
 }
 
-document.getElementById("stop").onclick = stop;
+stopButton.onclick = stop;
 function stop() {
-  if (state === "running") {
-    state = undefined;
-    print("Stopping");
-    print(`Ran ${testCount} tests`);
+  if (state !== "running") {
+    return;
   }
+
+  state = undefined;
+  startButton.disabled = false;
+  stepButton.disabled = false;
+  stopButton.disabled = true;
+
+  print("Stopped");
+  print(`Ran ${testCount} tests`);
 }
 
 initConfigBool("verbose");
@@ -134,11 +150,16 @@ window.addEventListener("message", (event) => {
 function testFinished(result, error) {
   print(`Test finshed: ${result} ${error || ''}`);
 
-  if (state === "running" && result == "OK") {
-    runNextTest()
-  } else {
-    state = undefined;
+  if (state === "running") {
+    if (result === "OK") {
+      runNextTest();
+    } else {
+      stop();
+    }
+    return;
   }
+
+  state = undefined;
 }
 
 function loadPageInIFrame(url) {
@@ -350,6 +371,7 @@ function checkModuleGraph(graph, root) {
       }
       return false;
     }
+
     throw error;
   }
 }
