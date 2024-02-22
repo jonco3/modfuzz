@@ -7,7 +7,7 @@ import { Graph, Node, Edge, DFS } from "./graph.mjs";
 
 let state;
 
-let config;
+let config = {};
 
 let testCount;
 let startTime;
@@ -42,18 +42,15 @@ function stop() {
   }
 }
 
-const showGraphElement = document.getElementById("showGraph");
-showGraphElement.addEventListener("change", readConfig);
-const importMapsElement = document.getElementById("importMaps");
-importMapsElement.addEventListener("change", readConfig);
+initConfigBool("verbose");
+initConfigBool("importMaps");
 
-function readConfig() {
-  config = {
-    showGraph: showGraphElement.checked,
-    importMaps: importMapsElement.checked
-  };
+function initConfigBool(name) {
+  const element = document.getElementById(name);
+  const readConfig = () => config[name] = element.checked;
+  element.addEventListener("change", readConfig);
+  readConfig();
 }
-readConfig();
 
 function runNextTest() {
   if (!state) {
@@ -87,7 +84,7 @@ function fuzz() {
 
   let pageURL = graph.getRootURL();
 
-  if (config.showGraph) {
+  if (config.verbose) {
     print(`Test ${testCount}:`);
     dumpGraph(graph);
   }
@@ -326,7 +323,7 @@ class AssertionError extends Error {
 }
 
 function checkModuleGraph(graph, root) {
-  if (config.showGraph) {
+  if (config.verbose) {
     print("Load order: " + loadOrder.join(", "));
     print("Load started: " + loadStarted.join(", "));
     print("Load finished: " + loadFinished.join(", "));
@@ -345,7 +342,7 @@ function checkModuleGraph(graph, root) {
     print(error);
     if (error instanceof AssertionError) {
       print("Graph check failed");
-      if (!config.showGraph) {
+      if (!config.verbose) {
         dumpGraph(graph);
         print("Load order: " + loadOrder.join(", "));
         print("Load started: " + loadStarted.join(", "));
