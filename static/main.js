@@ -14,6 +14,7 @@ let startTime;
 
 let startButton = document.getElementById("start");
 let stepButton = document.getElementById("step");
+let repeatButton = document.getElementById("repeat");
 let stopButton = document.getElementById("stop");
 
 startButton.onclick = start;
@@ -41,6 +42,18 @@ function step() {
   state = "step";
   testCount = 0;
   runNextTest();
+}
+
+repeatButton.onclick = repeat;
+function repeat() {
+  if (state) {
+    return;
+  }
+
+  state = "repeat";
+  testCount = 0;
+  clear();
+  testGeneratedGraph();
 }
 
 stopButton.onclick = stop;
@@ -73,6 +86,7 @@ function runNextTest() {
     return;
   }
 
+  repeatButton.disabled = false;
   clear();
   fuzz();
 }
@@ -86,8 +100,6 @@ let loadStarted;
 let loadFinished;
 
 function fuzz() {
-  testCount++;
-
   let options = {
     pImportMap: config.importMaps ? 0.5 : 0.0
   };
@@ -97,6 +109,12 @@ function fuzz() {
     let elapsed = (performance.now() - startTime) / 1000;
     print(`Tests per second: ${(testCount / elapsed).toFixed(2)}`);
   }
+
+  testGeneratedGraph();
+}
+
+function testGeneratedGraph() {
+  testCount++;
 
   let pageURL = graph.getRootURL();
 
