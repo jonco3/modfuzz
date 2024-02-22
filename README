@@ -3,8 +3,11 @@ modfuzz
 
 This is a attempt to write a simple fuzzer to test the DOM module loader.
 
-We generate random module graphs and server them with a node based server.
+It generates random script/module graphs and serves them with a node based
+webserver.
 
-Start with:
+Start the server with:
 
  $ node server.mjs
+
+Then browse to http://localhost:8000/ to access the fuzzer.
