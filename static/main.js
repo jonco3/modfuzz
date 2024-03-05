@@ -73,6 +73,7 @@ function stop() {
 
 initConfigBool("verbose");
 initConfigBool("importMaps");
+initConfigBool("delayResponses");
 
 function initConfigBool(name) {
   const element = document.getElementById(name);
@@ -101,7 +102,8 @@ let loadFinished;
 
 function fuzz() {
   let options = {
-    pImportMap: config.importMaps ? 0.5 : 0.0
+    pImportMap: config.importMaps ? 0.5 : 0.0,
+    pDelayResponse: config.delayResponses ? 0.25 : 0.0
   };
   graph = buildScriptGraph(2 + rand(8), options);
 
@@ -209,7 +211,7 @@ function buildScriptGraph(size, maybeOptions) {
     pDynamic: 0.0,
     pCyclic: 0.0,
     pError: 0.0,
-    pSlow: 0.25
+    pDelayResponse: 0.0
   };
 
   if (maybeOptions) {
@@ -226,7 +228,7 @@ function buildScriptGraph(size, maybeOptions) {
 
   // Per script setting.
   const pModule = options.pModule;
-  const pSlow = options.pSlow;
+  const pDelayResponse = options.pDelayResponse;
 
   const pBareImportGivenImportMap = 0.5;
   const pStaticImportMap = 0.5
@@ -259,7 +261,7 @@ function buildScriptGraph(size, maybeOptions) {
         isModule: choose(pModule),
         isError: choose(pError),
         isAsync: choose(pAsync),
-        isSlow: choose(pSlow)
+        isSlow: choose(pDelayResponse)
       };
     }
     let node = new Node(i, flags);
