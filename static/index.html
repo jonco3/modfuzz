@@ -3,8 +3,10 @@
 
 <form>
   <div>
-    <input type="checkbox" id="verbose" checked></input>
-    <label for="verbose">Verbose output</label>
+    <label for="size">Graph size:</label>
+    <input type="range" id="size" min="2" max="20" value="10"
+           style="vertical-align: middle"></input>
+    <input id="sizeDisplay" type="text" disabled value="" size="2"></input>
   </div>
   <div>
     <input type="checkbox" id="importMaps" checked></input>
@@ -13,6 +15,10 @@
   <div>
     <input type="checkbox" id="delayResponses" checked></input>
     <label for="delayResponses">Delay HTTP reponses</label>
+  </div>
+  <div>
+    <input type="checkbox" id="verbose" checked></input>
+    <label for="verbose">Verbose output</label>
   </div>
 </form>
 

@@ -71,9 +71,22 @@ function stop() {
   print(`Ran ${testCount} tests`);
 }
 
+initConfigRange("size", "sizeDisplay");
 initConfigBool("verbose");
 initConfigBool("importMaps");
 initConfigBool("delayResponses");
+
+function initConfigRange(name, displayName) {
+  const element = document.getElementById(name);
+  const display = document.getElementById(displayName);
+  const readConfig = () => {
+    let value = parseInt(element.value);
+    display.value = value;
+    config[name] = value;
+  };
+  element.addEventListener("change", readConfig);
+  readConfig();
+}
 
 function initConfigBool(name) {
   const element = document.getElementById(name);
@@ -101,11 +114,12 @@ let loadStarted;
 let loadFinished;
 
 function fuzz() {
+  let size = rand(config.size - 1) + 2;
   let options = {
     pImportMap: config.importMaps ? 0.5 : 0.0,
     pDelayResponse: config.delayResponses ? 0.25 : 0.0
   };
-  graph = buildScriptGraph(2 + rand(8), options);
+  graph = buildScriptGraph(size, options);
 
   if (testCount > 10) {
     let elapsed = (performance.now() - startTime) / 1000;
