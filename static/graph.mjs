@@ -1,12 +1,12 @@
 export class Edge {
-  static flagNames = ['isAsync', 'isBare'];
+  static flagNames = ['isDynamic', 'isBare'];
   static flagEncodeMap = makeFlagEncodeMap(this.flagNames);
   static flagDecodeMap = invertMap(this.flagEncodeMap);
 
   constructor(source, target, flags) {
     this.source = source;
     this.target = target;
-    this.isAsync = false;
+    this.isDynamic = false;
     this.isBare = false;
     initFlags(this, flags, Edge.flagNames);
   }
@@ -39,14 +39,14 @@ export class Node {
   forEachOutgoingEdge(f) {
     for (let i = 0; i < this.outEdges.length; i++) {
       let edge = this.outEdges[i];
-      f(edge.target, edge.isAsync, edge.isBare);
+      f(edge.target, edge.isDynamic, edge.isBare);
     }
   }
 
   forEachIncomingEdge(f) {
     for (let i = 0; i < this.inEdges.length; i++) {
       let edge = this.inEdges[i];
-      f(edge.source, edge.isAsync, edge.isBare);
+      f(edge.source, edge.isDynamic, edge.isBare);
     }
   }
 
@@ -59,7 +59,7 @@ export class Node {
     this.outEdges.push(edge);
     target.inEdges.push(edge);
 
-    if (edge.isAsync) {
+    if (edge.isDynamic) {
       this.isAsync = true;
     }
   }
@@ -166,8 +166,8 @@ export class Graph {
   hasDynamicImport() {
     let result = false;
     for (let node of this.nodes) {
-      node.forEachOutgoingEdge((target, isAsync) => {
-        if (isAsync) {
+      node.forEachOutgoingEdge((target, isDynamic) => {
+        if (isDynamic) {
           result = true;
         }
       });
@@ -179,7 +179,7 @@ export class Graph {
   hasCycle() {
     let result = false;
     for (let node of this.nodes) {
-      node.forEachOutgoingEdge((target, isAsync) => {
+      node.forEachOutgoingEdge((target, isDynamic) => {
         if (target.index < node.index) {
           result = true;
         }
@@ -376,8 +376,8 @@ export function DFS(node, post, filter = () => true, visited = new Set()) {
 
     visited.add(node);
 
-    node.forEachOutgoingEdge((out, isAsync) => {
-      if (filter(out, isAsync)) {
+    node.forEachOutgoingEdge((out, isDynamic) => {
+      if (filter(out, isDynamic)) {
         traverse(out);
       }
     });

@@ -123,8 +123,8 @@ function buildPageSource(graph, node) {
 
   let sawModule = false;
 
-  node.forEachOutgoingEdge((out, isAsync, isBare) => {
-    if (isAsync) {
+  node.forEachOutgoingEdge((out, isDynamic, isBare) => {
+    if (isDynamic) {
       throw "Not supported";
     }
 
@@ -202,7 +202,7 @@ function buildScriptSource(graph, node) {
   }
 
   let index = 0;
-  node.forEachOutgoingEdge((out, isAsync, isBare) => {
+  node.forEachOutgoingEdge((out, isDynamic, isBare) => {
     let url;
     if (isBare) {
       url = out.index.toString();
@@ -212,7 +212,7 @@ function buildScriptSource(graph, node) {
 
     // Import the module and check the default export is what we expect.
     let name = "default_" + index;
-    if (isAsync) {
+    if (isDynamic) {
       lines.push(`let ${name} = await import("${url}").default;`);
     } else {
       lines.push(`import { default as ${name} } from "${url}";`);

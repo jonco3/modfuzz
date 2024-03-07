@@ -327,7 +327,7 @@ function buildScriptGraph(size, maybeOptions) {
       do {
         node.isAsync = false;
         edge = node.inEdges[0];
-        edge.isAsync = false;
+        edge.isDynamic = false;
         node = edge.source;
       } while (node !== ancestor)
     }
@@ -338,9 +338,9 @@ function buildScriptGraph(size, maybeOptions) {
 
 function addImport(importers, node, pDynamic, pBareImport) {
   let parent = importers[rand(importers.length)];
-  let isAsync = choose(pDynamic);
+  let isDynamic = choose(pDynamic);
   let isBare = choose(pBareImport);
-  parent.addImport(node, {isAsync, isBare});
+  parent.addImport(node, {isDynamic, isBare});
 }
 
 // Random integer in range 0 to n exclusive.
