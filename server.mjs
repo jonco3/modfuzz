@@ -106,13 +106,15 @@ function buildPageSource(graph, node) {
     '<pre id="out"></pre>',
     '<script>',
     '  window.addEventListener("error", (event) => {',
-    '    window.parent.postMessage("error " + event.message, "*");',
+    '    window.parent.postMessage("error " + event.error.toString(), "*");',
     '  });',
     '</script>'
   ];
 
+  lines.push(`<script>window.parent.postMessage("start ${node.index}", "*");</script>`);
+
   if (node.isError) {
-    lines.push(`<script>throw new Error("${node.moduleName}");</script>`);
+    lines.push(`<script>throw new Error("GeneratedError ${node.index}");</script>`);
   }
 
   if (node.isAsync) {
@@ -155,7 +157,6 @@ function buildPageSource(graph, node) {
   });
 
   lines.push(`<script type="module">`);
-  lines.push(`  window.parent.postMessage("start ${node.index}", "*");`);
   // todo: async imports would come here
   lines.push(`  window.parent.postMessage("finish ${node.index}", "*");`);
   lines.push(`  window.parent.postMessage("loaded", "*");`);
@@ -189,7 +190,7 @@ function buildScriptSource(graph, node) {
   ];
 
   if (node.isError) {
-    lines.push(`throw new Error("${node.moduleName}");`);
+    lines.push(`throw new Error("GeneratedError ${node.index}");`);
   }
 
   if (node.isAsync) {
@@ -253,8 +254,7 @@ http.createServer(async (req, res) => {
 
   console.log(`${req.method} ${decodeURI(req.url)} => ${statusCode}`);
   res.writeHead(statusCode, {
-    "Content-Type": mimeType,
-    "Access-Control-Allow-Origin": "*"
+    "Content-Type": mimeType
   });
   stream.pipe(res);
 }).listen(PORT);

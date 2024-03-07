@@ -74,6 +74,7 @@ function stop() {
 initConfigRange("size", "sizeDisplay");
 initConfigBool("verbose");
 initConfigBool("importMaps");
+initConfigBool("errors");
 initConfigBool("delayResponses");
 
 function initConfigRange(name, displayName) {
@@ -106,17 +107,18 @@ function runNextTest() {
 }
 
 let graph;
-let finished;
 let error;
 let result;
 let loadOrder;
 let loadStarted;
 let loadFinished;
+let loadErrored;
 
 function fuzz() {
   let size = rand(config.size - 1) + 2;
   let options = {
     pImportMap: config.importMaps ? 0.5 : 0.0,
+    pError: config.errors ? 0.25 : 0.0,
     pDelayResponse: config.delayResponses ? 0.25 : 0.0
   };
   graph = buildScriptGraph(size, options);
@@ -139,7 +141,6 @@ function testGeneratedGraph() {
     dumpGraph(graph);
   }
 
-  finished = false;
   error = undefined;
   result = undefined;
   initTestState(graph);
@@ -151,6 +152,11 @@ window.addEventListener("message", (event) => {
 
   let words = message.split(' ');
   let reason = words[0];
+
+  if (!state) {
+    print("Ignoring extra message: " + words[0]);
+    return;
+  }
 
   if (reason === "start") {
     let index = parseInt(words[1]);
@@ -166,16 +172,20 @@ window.addEventListener("message", (event) => {
     }
     loadFinished[index] = true;
   } else if (reason === "loaded") {
-    if (checkModuleGraph(graph)) {
-      result = "OK";
-    } else {
-      result = "FAIL";
-    }
+    result = checkLoadedGraph(graph);
     testFinished(result, error);
   } else if (reason === "error") {
-    result = "ERROR";
-    error = message.substring(6);
-    testFinished(result, error);
+    if (words[2] === "GeneratedError") {
+      let index = parseInt(words[3]);
+      if (Number.isNaN(index)) {
+        throw("Bad index in generated error: " + message);
+      }
+      loadErrored[index] = true;
+    } else {
+      result = "ERROR";
+      error = message.substring(6);
+      testFinished(result, error);
+    }
   } else {
     throw "Unexpected message: " + message;
   }
@@ -198,7 +208,7 @@ function testFinished(result, error) {
 
 function loadPageInIFrame(url) {
   let iframe = document.createElement("iframe");
-  iframe.sandbox = "allow-scripts";
+  iframe.sandbox = "allow-scripts allow-same-origin";
   iframe.src = url;
   
   let div = document.getElementById("content");
@@ -369,6 +379,7 @@ function initTestState(graph) {
   loadOrder = [];
   loadFinished = new Array(graph.size).fill(false);
   loadStarted = new Array(graph.size).fill(false);
+  loadErrored = new Array(graph.size).fill(false);
 }
 
 class AssertionError extends Error {
@@ -377,40 +388,43 @@ class AssertionError extends Error {
   }
 }
 
-function checkModuleGraph(graph, root) {
+function checkLoadedGraph(graph) {
   if (config.verbose) {
-    print("Load order: " + loadOrder.join(", "));
-    print("Load started: " + loadStarted.join(", "));
-    print("Load finished: " + loadFinished.join(", "));
+    dumpLoadState();
   }
 
   try {
     if (graph.hasAsyncEvaluation() || graph.hasCycle()) {
       // Difficult to work out expectations without implementing the algorithm
       // itself. Run some simpler checks.
-      simpleGraphCheck(graph, root);
+      simpleGraphCheck(graph);
     } else {
-      fullGraphCheck(graph, root);
+      fullGraphCheck(graph);
     }
-    return true;
+    return "OK";
   } catch (error) {
     print(error);
     if (error instanceof AssertionError) {
       print("Graph check failed");
       if (!config.verbose) {
         dumpGraph(graph);
-        print("Load order: " + loadOrder.join(", "));
-        print("Load started: " + loadStarted.join(", "));
-        print("Load finished: " + loadFinished.join(", "));
+        dumpLoadState();
       }
-      return false;
+      return "FAIL";
     }
 
     throw error;
   }
 }
 
-function simpleGraphCheck(graph, root) {
+function dumpLoadState() {
+  print("Load order: " + loadOrder.join(", "));
+  print("Load started: " + loadStarted.join(", "));
+  print("Load finished: " + loadFinished.join(", "));
+  print("Load errored: " + loadErrored.join(", "));
+}
+
+function simpleGraphCheck(graph) {
   // TODO: Can we improve these checks?
 
   if (!graph.hasError()) {
@@ -427,39 +441,58 @@ function simpleGraphCheck(graph, root) {
   });
 }
 
-function fullGraphCheck(graph, root) {
+function fullGraphCheck(graph) {
   let expectedOrder = [];
   let expectedStart = new Array(graph.size).fill(false);
-  let expectedEnd = new Array(graph.size).fill(false);
+  let expectedFinish = new Array(graph.size).fill(false);
+  let expectedError = new Array(graph.size).fill(false);
+
+  expectedOrder.push(graph.root.index);
+  expectedStart[graph.root.index] = true;
+  expectedFinish[graph.root.index] = true;
 
   // First, all classic scripts load.
   graph.root.forEachOutgoingEdge(node => {
     if (!node.isModule) {
       expectedOrder.push(node.index);
       expectedStart[node.index] = true;
-      expectedEnd[node.index] = !node.isError;
+      expectedFinish[node.index] = !node.isError;
+      expectedError[node.index] = node.isError;
     }
   });
 
-  let failed = false;
-  DFS(graph.root,
-      node => {
-        if (failed || !node.isModule) {
-          return;
-        }
+  let moduleMap = new Set();
 
-        expectedOrder.push(node.index);
-        expectedStart[node.index] = true;
-        expectedEnd[node.index] = !node.isError;
+  // Then all modules, which are 'defer' by default.
+  graph.root.forEachOutgoingEdge(node => {
+    if (node.isModule) {
+      let failed = false;
+      DFS(node,
+          node => {
+            if (failed) {
+              return;
+            }
 
-        if (node.isError) {
-          failed = true;
-        }
-      });
+            let index = node.index;
+            if (!moduleMap.has(index)) {
+              moduleMap.add(index);
+              expectedOrder.push(index);
+              expectedStart[index] = true;
+              expectedFinish[index] = !node.isError;
+              expectedError[index] = node.isError;
+            }
+
+            if (node.isError) {
+              failed = true;
+            }
+          });
+    }
+  });
 
   assertEq(loadOrder.join(), expectedOrder.join());
   assertEq(loadStarted.join(), expectedStart.join());
-  assertEq(loadFinished.join(), expectedEnd.join());
+  assertEq(loadFinished.join(), expectedFinish.join());
+  assertEq(loadErrored.join(), expectedError.join());
 }
 
 function assertEq(actual, expected) {
