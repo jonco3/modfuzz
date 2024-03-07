@@ -154,12 +154,12 @@ function buildPageSource(graph, node) {
     lines.push(`<script src="${url}"${options}></script>`);
   });
 
-  lines.push(`<script type="module">window.parent.postMessage("start ${node.index}", "*");</script>`);
-
+  lines.push(`<script type="module">`);
+  lines.push(`  window.parent.postMessage("start ${node.index}", "*");`);
   // todo: async imports would come here
-
-  lines.push(`<script type="module">window.parent.postMessage("finish ${node.index}", "*");</script>`);
-  lines.push(`<script type="module">window.parent.postMessage("loaded", "*");</script>`);
+  lines.push(`  window.parent.postMessage("finish ${node.index}", "*");`);
+  lines.push(`  window.parent.postMessage("loaded", "*");`);
+  lines.push(`</script>`);
 
   return lines.join("\n");
 }
