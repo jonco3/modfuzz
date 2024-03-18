@@ -75,6 +75,7 @@ initConfigRange("size", "sizeDisplay");
 initConfigBool("verbose");
 initConfigBool("importMaps");
 initConfigBool("errors");
+initConfigBool("preloads");
 initConfigBool("delayResponses");
 
 function initConfigRange(name, displayName) {
@@ -119,6 +120,7 @@ function fuzz() {
   let options = {
     pImportMap: config.importMaps ? 0.5 : 0.0,
     pError: config.errors ? 0.25 : 0.0,
+    pPreload: config.preloads ? 0.5 : 0.0,
     pDelayResponse: config.delayResponses ? 0.25 : 0.0
   };
   graph = buildScriptGraph(size, options);
@@ -235,6 +237,7 @@ function buildScriptGraph(size, maybeOptions) {
     pDynamic: 0.0,
     pCyclic: 0.0,
     pError: 0.0,
+    pPreload: 0.0,
     pDelayResponse: 0.0
   };
 
@@ -249,6 +252,7 @@ function buildScriptGraph(size, maybeOptions) {
   const pDynamic = options.pDynamic / size;
   const pCyclic = options.pCyclic / size - 1;
   const pError = options.pError / size;
+  const pPreload = options.pPreload;
 
   // Per script setting.
   const pModule = options.pModule;
@@ -284,6 +288,7 @@ function buildScriptGraph(size, maybeOptions) {
       flags = {
         isModule: choose(pModule),
         isError: choose(pError),
+        hasPreload: choose(pPreload),
         isAsync: choose(pAsync),
         isSlow: choose(pDelayResponse)
       };

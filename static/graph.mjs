@@ -17,7 +17,7 @@ export class Edge {
 }
 
 export class Node {
-  static flagNames = ['isModule', 'isError', 'isAsync', 'isSlow'];
+  static flagNames = ['isModule', 'isError', 'isAsync', 'isSlow', 'hasPreload'];
   static flagEncodeMap = makeFlagEncodeMap(this.flagNames);
   static flagDecodeMap = invertMap(this.flagEncodeMap);
 
@@ -118,6 +118,10 @@ export class Graph {
 
   get size() {
     return this.nodes.length;
+  }
+
+  get hasImportMap() {
+    return this.hasStaticImportMap || this.hasDynamicImportMap;
   }
 
   addNode(node) {

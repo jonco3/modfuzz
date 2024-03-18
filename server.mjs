@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import {Readable} from 'stream';
-import { Graph } from "./static/graph.mjs";
+import {Graph, DFS} from "./static/graph.mjs";
 
 const PORT = 8000;
 
@@ -123,24 +123,19 @@ function buildPageSource(graph, node) {
 
   let sawModule = false;
 
+  // Put preloads first if there is no import map.
+  if (!graph.hasImportMap) {
+    buildPreloads(graph, node, lines);
+  }
+
   node.forEachOutgoingEdge((out, isDynamic, isBare) => {
     if (isDynamic) {
       throw "Not supported";
     }
 
-    // Add any import map before the first module.
     if (out.isModule && !sawModule) {
       sawModule = true;
-      if (graph.hasStaticImportMap) {
-        lines.push(`<script type="importmap">${buildImportMap(graph)}</script>`);
-      } else if (graph.hasDynamicImportMap) {
-        lines.push(`<script>`,
-                   '  let script = document.createElement("script");',
-                   '  script.type = "importmap";',
-                   `  script.textContent = '${buildImportMap(graph)}';`,
-                   '  document.head.appendChild(script);',
-                   `</script>`);
-      }
+      buildPreModuleContent(graph, node, lines);
     }
 
     let url;
@@ -163,6 +158,36 @@ function buildPageSource(graph, node) {
   lines.push(`</script>`);
 
   return lines.join("\n");
+}
+
+function buildPreModuleContent(graph, node, lines) {
+  // Add any import map before the first module script, allowing classic
+  // scripts to precede it.
+  if (graph.hasStaticImportMap) {
+    lines.push(`<script type="importmap">${buildImportMap(graph)}</script>`);
+  } else if (graph.hasDynamicImportMap) {
+    lines.push(`<script>`,
+               '  let script = document.createElement("script");',
+               '  script.type = "importmap";',
+               `  script.textContent = '${buildImportMap(graph)}';`,
+               '  document.head.appendChild(script);',
+               `</script>`);
+  }
+
+  // Add any preloads after the import map.
+  if (graph.hasImportMap) {
+    buildPreloads(graph, node, lines);
+  }
+}
+
+function buildPreloads(graph, root, lines) {
+  DFS(root, (node) => {
+    if (node.hasPreload) {
+      let kind = node.isModule ? 'modulepreload' : 'preload';
+      let url = graph.getNodeURL(node);  // TODO: also try preloading remapped URLs?
+      lines.push(`<link rel="${kind}" href="${url}" />`);
+    }
+  });
 }
 
 function buildImportMap(graph) {
