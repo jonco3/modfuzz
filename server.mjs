@@ -117,7 +117,7 @@ function buildPageSource(graph, node) {
     lines.push(`<script>throw new Error("GeneratedError ${node.index}");</script>`);
   }
 
-  if (node.isAsync) {
+  if (node.hasTopLevelAwait) {
     throw "Not supported";
   }
 
@@ -218,12 +218,15 @@ function buildScriptSource(graph, node) {
     lines.push(`throw new Error("GeneratedError ${node.index}");`);
   }
 
-  if (node.isAsync) {
-    lines.push(`await 0;`);
-  }
-
   if (node.isModule) {
     lines.push(`export default ${node.index};`);
+  }
+
+  if (node.hasTopLevelAwait) {
+    if (!node.isMoudule) {
+      throw new Error("TLA only supported in modules");
+    }
+    lines.push(`await 0;`);
   }
 
   let index = 0;

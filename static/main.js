@@ -233,7 +233,7 @@ function buildScriptGraph(size, maybeOptions) {
     pModule: 0.75,
     pMultiParent: 1.0,
     pImportMap: 0.0,
-    pAsync: 0.0,
+    pTopLevelAwait: 0.0,
     pDynamic: 0.0,
     pCyclic: 0.0,
     pError: 0.0,
@@ -248,7 +248,7 @@ function buildScriptGraph(size, maybeOptions) {
   // Per graph settings.
   const pMultiParent = options.pMultiParent / size;
   const pImportMap = options.pImportMap;
-  const pAsync = options.pAsync / size;
+  const pTopLevelAwait = options.pTopLevelAwait / size;
   const pDynamic = options.pDynamic / size;
   const pCyclic = options.pCyclic / size - 1;
   const pError = options.pError / size;
@@ -289,7 +289,7 @@ function buildScriptGraph(size, maybeOptions) {
         isModule: choose(pModule),
         isError: choose(pError),
         hasPreload: choose(pPreload),
-        isAsync: choose(pAsync),
+        hasTopLevelAwait: choose(pTopLevelAwait),
         isSlow: choose(pDelayResponse)
       };
     }
@@ -330,7 +330,7 @@ function buildScriptGraph(size, maybeOptions) {
       // Introducing a cycle though a dynamic import can livelock, so turn off
       // async evaluation on path to ancestor.
       do {
-        node.isAsync = false;
+        node.hasTopLevelAwait = false;
         edge = node.inEdges[0];
         edge.isDynamic = false;
         node = edge.source;

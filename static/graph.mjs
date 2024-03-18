@@ -17,7 +17,7 @@ export class Edge {
 }
 
 export class Node {
-  static flagNames = ['isModule', 'isError', 'isAsync', 'isSlow', 'hasPreload'];
+  static flagNames = ['isModule', 'isError', 'hasTopLevelAwait', 'isSlow', 'hasPreload'];
   static flagEncodeMap = makeFlagEncodeMap(this.flagNames);
   static flagDecodeMap = invertMap(this.flagEncodeMap);
 
@@ -28,7 +28,7 @@ export class Node {
     this.cachedSource = undefined;
     this.isRoot = index === 0;
     this.isError = false;
-    this.isAsync = false;
+    this.hasTopLevelAwait = false;
     initFlags(this, flags, Node.flagNames);
   }
 
@@ -60,7 +60,7 @@ export class Node {
     target.inEdges.push(edge);
 
     if (edge.isDynamic) {
-      this.isAsync = true;
+      this.hasTopLevelAwait = true;
     }
   }
 
@@ -149,8 +149,13 @@ export class Graph {
 
   hasAsyncEvaluation() {
     for (let node of this.nodes) {
-      if (node.isAsync) {
+      if (node.hasTopLevelAwait) {
         return true;
+      }
+      for (let i = 0; i < node.outEdges.length; i++) {
+        if (node.outEdges[i].isDynamic) {
+          return true;
+        }
       }
     }
 
