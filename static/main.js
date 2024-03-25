@@ -153,9 +153,6 @@ function fuzz() {
 function testGeneratedGraph() {
   testCount++;
 
-  let graphString = graph.toString();
-  history.replaceState(graphString, "", "#" + graphString);
-
   let pageURL = graph.getRootURL();
 
   if (config.verbose) {
@@ -387,6 +384,7 @@ function choose(p) {
 function dumpGraph(graph) {
   print(`Graph of ${graph.size} nodes${dumpFlags(graph, Graph.flagNames)}`);
   let location = document.location.toString().split("#")[0];
+  print(`  Test URL: ${location}#${graph.toString()}`);
   print(`  Source: view-source:${location}${graph.getRootURL().substring(1)}`);
   graph.forEachNode(node => {
     print(`  Node ${node.index}${dumpFlags(node, Node.flagNames)}`);
