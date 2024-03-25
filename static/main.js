@@ -366,7 +366,7 @@ function buildScriptGraph(size, maybeOptions) {
 function addImport(importers, node, pDynamic, pBareImport) {
   let parent = importers[rand(importers.length)];
   let isDynamic = choose(pDynamic);
-  let isBare = choose(pBareImport);
+  let isBare = !parent.isRoot && choose(pBareImport);
   parent.addImport(node, {isDynamic, isBare});
 }
 
@@ -384,8 +384,20 @@ function choose(p) {
 function dumpGraph(graph) {
   print(`Graph of ${graph.size} nodes${dumpFlags(graph, Graph.flagNames)}`);
   let location = document.location.toString().split("#")[0];
+  let rootURL = location + graph.getRootURL().substring(1);
+  let baseURL = location + graph.getBaseURL().substring(1);
+
+  let files = [];
+  graph.forEachNode(node => {
+    if (!node.isNotFound) {
+      files.push(node.filename);
+    }
+  });
+  let downloadCommand = `curl --remote-name-all ${baseURL}{${files.join()}}`;
+
   print(`  Test URL: ${location}#${graph.toString()}`);
-  print(`  Source: view-source:${location}${graph.getRootURL().substring(1)}`);
+  print(`  View source: view-source:${rootURL}`);
+  print(`  Download with: ${downloadCommand}`);
   graph.forEachNode(node => {
     print(`  Node ${node.index}${dumpFlags(node, Node.flagNames)}`);
     node.outEdges.forEach(edge => {

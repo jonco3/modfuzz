@@ -53,6 +53,9 @@ let cachedGraph;
 
 async function handleGeneratedFile(url) {
   let parts = url.split("/").slice(2);
+  if (parts.length !== 2) {
+    throw new Error("Bad node spec: " + url);
+  }
 
   let graph;
   let encodedGraph = parts[0];
@@ -64,12 +67,22 @@ async function handleGeneratedFile(url) {
     cachedGraph = graph;
   }
 
-  let index = parseInt(parts[1]);
+  let index = 0;
+  let ext = "html";
+  if (parts[1] !== "") {
+    parts = parts[1].split(".");
+    index = parseInt(parts[0]);
+    ext = parts[1];
+  }
+
   if (Number.isNaN(index)) {
-    throw new Error("Bad node index: " + parts[1]);
+    throw new Error("Bad node name: " + parts[1]);
   }
 
   let node = graph.getNode(index);
+  if (node.extension !== ext) {
+    throw new NotFoundError("Not found");
+  }
 
   let mimeType;
   let data;
@@ -129,7 +142,7 @@ function buildPageSource(graph, node) {
   }
 
   node.forEachOutgoingEdge((out, isDynamic, isBare) => {
-    if (isDynamic) {
+    if (isDynamic || isBare) {
       throw "Not supported";
     }
 
@@ -138,12 +151,7 @@ function buildPageSource(graph, node) {
       buildPreModuleContent(graph, node, lines);
     }
 
-    let url;
-    if (isBare) {
-      url = out.index.toString();
-    } else {
-      url = graph.getNodeURL(out);
-    }
+    let url = getScriptURL(out, false);
     let options = '';
     if (out.isModule) {
       options = ' type="module"';
@@ -184,7 +192,7 @@ function buildPreloads(graph, root, lines) {
   DFS(root, (node) => {
     if (node.hasPreload) {
       let kind = node.isModule ? 'modulepreload' : 'preload';
-      let url = graph.getNodeURL(node);  // TODO: also try preloading remapped URLs?
+      let url = getScriptURL(node, false);
       lines.push(`<link rel="${kind}" href="${url}" />`);
     }
   });
@@ -194,10 +202,12 @@ function buildImportMap(graph) {
   let imports = {};
 
   // Add bare names for all modules.
-  for (let i = 1; i < graph.size; i++) {
-    let name = i.toString();
-    imports[name] = `./${name}`;
-  }
+  graph.forEachNode(node => {
+    if (node.isModule) {
+      let bareName = node.index.toString();
+      imports[bareName] = getScriptURL(node, false);
+    }
+  });
 
   // TODO: Rearrange valid modules specifiers to test map is used.
 
@@ -235,12 +245,7 @@ function buildScriptSource(graph, node) {
 
   let index = 0;
   node.forEachOutgoingEdge((out, isDynamic, isBare) => {
-    let url;
-    if (isBare) {
-      url = out.index.toString();
-    } else {
-      url = graph.getNodeURL(out);
-    }
+    let url = getScriptURL(out, isBare);
 
     // Import the module and check the default export is what we expect.
     let name = "default_" + index;
@@ -260,21 +265,30 @@ function buildScriptSource(graph, node) {
   return lines.join("\n");
 }
 
+function getScriptURL(node, isBare) {
+  if (isBare) {
+    return node.index.toString();
+  }
+
+  return `./${node.index}.${node.extension}`;
+}
+
 http.createServer(async (req, res) => {
   let statusCode;
   let mimeType = "text/plain";
   let stream;
 
+  let url = req.url;
   try {
-    if (req.url.startsWith('/graph/')) {
-      ({ statusCode, mimeType, stream } = await handleGeneratedFile(req.url));
+    if (url.startsWith('/graph/')) {
+      ({ statusCode, mimeType, stream } = await handleGeneratedFile(url));
     } else {
-      ({ statusCode, mimeType, stream } = await handleStaticFile(req.url));
+      ({ statusCode, mimeType, stream } = await handleStaticFile(url));
     }
   } catch (error) {
     if (error instanceof NotFoundError) {
       statusCode = 404;
-      stream = Readable.from("File not found: " + req.url,
+      stream = Readable.from("File not found: " + url,
                              {encoding: 'utf8'});
     } else {
       console.log("Error: " + error);

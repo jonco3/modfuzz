@@ -39,8 +39,18 @@ export class Node {
     initFlags(this, flags, Node.flagNames);
   }
 
-  get moduleName() {
-    return "module" + this.index;
+  get filename() {
+    return `${this.index}.${this.extension}`;
+  }
+
+  get extension() {
+    if (this.isRoot) {
+      return "html";
+    }
+    if (this.isModule) {
+      return "mjs";
+    }
+    return "js";
   }
 
   forEachOutgoingEdge(f) {
@@ -211,8 +221,12 @@ export class Graph {
     return this.getNodeURL(this.root);
   }
 
+  getBaseURL() {
+    return `/graph/${this.toString()}/`;
+  }
+
   getNodeURL(node) {
-    return `/graph/${this.toString()}/${node.index}`;
+    return `${this.getBaseURL()}${node.filename}`;
   }
 
   toString() {
