@@ -77,26 +77,24 @@ export class Node {
     this.outEdges.forEach(edge => {
       parts.push(edge.toString());
     });
-    return `(${parts.join(" ")})`;
+    return `${parts.join(",")}`;
   }
 
-  initFromExpr(graph, expr) {
-    if (expr.length === 0) {
+  initFromString(graph, str) {
+    let parts = str.split(",");
+    if (parts.length === 0) {
       throw "Empty node expression";
     }
 
-    let first = expr.shift();
-    if (typeof first !== "string" || !first.startsWith("n")) {
+    let first = parts.shift();
+    if (!first.startsWith("n")) {
       throw new Error("Expected node flags string");
     }
 
     let {flags} = decodeFlags(first.substring(1), Node.flagDecodeMap);
     initFlags(this, flags, Node.flagNames);
 
-    for (let part of expr) {
-      if (typeof part !== "string") {
-        throw new Error("Expected string");
-      }
+    for (let part of parts) {
       let {flags, remain} = decodeFlags(part, Edge.flagDecodeMap);
       let index = parseInt(remain);
       if (Number.isNaN(index) || index >= graph.size) {
@@ -227,29 +225,29 @@ export class Graph {
     this.forEachNode((node) => {
       parts.push(node.toString());
     });
-    this.cachedString = `(${parts.join(" ")})`;
+    this.cachedString = `${parts.join("_")}`;
     return this.cachedString
   }
 
   static fromString(str) {
-    let expr = parseListExpression(str);
-    if (expr.length === 0) {
+    let parts = str.split("_");
+    if (parts.length === 0) {
       throw new Error("Empty graph expression");
     }
 
-    let first = expr.shift();
-    if (typeof first !== "string" || !first.startsWith("g")) {
+    let first = parts.shift();
+    if (!first.startsWith("g")) {
       throw new Error("Expected graph flags string");
     }
     let {flags} = decodeFlags(first.substring(1), Graph.flagDecodeMap);
 
     let graph = new Graph(flags);
-    let size = expr.length;
+    let size = parts.length;
     for (let i = 0; i < size; i++) {
       graph.addNode(new Node(i));
     }
     for (let i = 0; i < size; i++) {
-      graph.getNode(i).initFromExpr(graph, expr[i]);
+      graph.getNode(i).initFromString(graph, parts[i]);
     }
 
     return graph;
@@ -327,70 +325,6 @@ function decodeFlags(str, map) {
   }
 
   return { flags, remain: str };
-}
-
-function parseListExpression(input) {
-  // A very basic s-expression parser.
-
-  let index = 0;
-  let root;
-  let stack = [];
-  let atom = "";
-
-  while (index < input.length) {
-    let c = input.charAt(index);
-    index++;
-
-    if (c === '(') {
-      if (atom) {
-        if (stack.length === 0) {
-          throw new Error("Unexpected atom");
-        }
-        stack[stack.length - 1].push(atom);
-      }
-      atom = "";
-      let e = [];
-      if (stack.length === 0) {
-        root = e;
-      } else {
-        stack[stack.length - 1].push(e);
-      }
-      stack.push(e);
-    } else if (c === ')') {
-      if (stack.length === 0) {
-        throw new Error("Mismatched )");
-      }
-      if (atom) {
-        stack[stack.length - 1].push(atom);
-        atom = "";
-      }
-      stack.pop();
-    } else if (c === ' ') {
-      if (atom) {
-        if (stack.length === 0) {
-          throw new Error("Characters outside of list");
-        }
-        stack[stack.length - 1].push(atom);
-        atom = "";
-      }
-    } else {
-      atom += c;
-    }
-  }
-
-  if (stack.length !== 0) {
-    throw new Error("Missing )");
-  }
-
-  if (atom) {
-    throw new Error("Unexpected atom");
-  }
-
-  if (!root) {
-    throw new Error("No expression");
-  }
-
-  return root;
 }
 
 export function DFS(node, post, filter = () => true, visited = new Set()) {
