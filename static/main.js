@@ -386,7 +386,8 @@ function choose(p) {
 
 function dumpGraph(graph) {
   print(`Graph of ${graph.size} nodes${dumpFlags(graph, Graph.flagNames)}`);
-  print(`  Source: view-source:${document.location}${graph.getRootURL().substring(1)}`);
+  let location = document.location.toString().split("#")[0];
+  print(`  Source: view-source:${location}${graph.getRootURL().substring(1)}`);
   graph.forEachNode(node => {
     print(`  Node ${node.index}${dumpFlags(node, Node.flagNames)}`);
     node.outEdges.forEach(edge => {
