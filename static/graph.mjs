@@ -117,6 +117,7 @@ export class Graph {
     this.nodes = [];
     this.hasStaticImportMap = false;
     this.hasDynamicImportMap = false;
+    this.cachedString = undefined;
     initFlags(this, flags, Graph.flagNames);
     if (this.hasStaticImportMap && this.hasDynamicImportMap) {
       throw new Error("Can't have both kinds of importmap");
@@ -133,7 +134,10 @@ export class Graph {
 
   addNode(node) {
     if (!node instanceof Node) {
-      throw "Expected a Node";
+      throw new Error("Expected a Node");
+    }
+    if (this.cachedString) {
+      throw new Error("Can't add node after caching string representation");
     }
     this.nodes.push(node);
   }
@@ -214,12 +218,17 @@ export class Graph {
   }
 
   toString() {
+    if (this.cachedString) {
+      return this.cachedString
+    }
+
     let flags = encodeFlags(this, Graph.flagEncodeMap);
     let parts = ["g" + flags];
     this.forEachNode((node) => {
       parts.push(node.toString());
     });
-    return `(${parts.join(" ")})`;
+    this.cachedString = `(${parts.join(" ")})`;
+    return this.cachedString
   }
 
   static fromString(str) {
