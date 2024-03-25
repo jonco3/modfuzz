@@ -101,6 +101,10 @@ function buildPageSource(graph, node) {
     throw "Can't get page source for non-root script";
   }
 
+  if (node.isNotFound || node.hasTopLevelAwait) {
+    throw new Error("Not supported");
+  }
+
   let lines = [
     '<!DOCTYPE html>',
     '<pre id="out"></pre>',
@@ -115,10 +119,6 @@ function buildPageSource(graph, node) {
 
   if (node.isError) {
     lines.push(`<script>throw new Error("GeneratedError ${node.index}");</script>`);
-  }
-
-  if (node.hasTopLevelAwait) {
-    throw "Not supported";
   }
 
   let sawModule = false;
@@ -207,7 +207,11 @@ function buildImportMap(graph) {
 
 function buildScriptSource(graph, node) {
   if (node.isRoot) {
-    throw "Can't get script source for root page";
+    throw new Error("Can't get script source for root page");
+  }
+
+  if (node.isNotFound) {
+    throw new NotFoundError("Not found");  // Responds with 404 error.
   }
 
   let lines = [

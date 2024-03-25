@@ -74,6 +74,7 @@ function stop() {
 initConfigRange("size", "sizeDisplay");
 initConfigBool("verbose");
 initConfigBool("importMaps");
+initConfigBool("missing");
 initConfigBool("errors");
 initConfigBool("preloads");
 initConfigBool("delayResponses");
@@ -119,6 +120,7 @@ function fuzz() {
   let size = rand(config.size - 1) + 2;
   let options = {
     pImportMap: config.importMaps ? 0.5 : 0.0,
+    pNotFound: config.missing ? 0.25 : 0.0,
     pError: config.errors ? 0.25 : 0.0,
     pPreload: config.preloads ? 0.5 : 0.0,
     pDelayResponse: config.delayResponses ? 0.25 : 0.0
@@ -236,6 +238,7 @@ function buildScriptGraph(size, maybeOptions) {
     pTopLevelAwait: 0.0,
     pDynamic: 0.0,
     pCyclic: 0.0,
+    pNotFound: 0.0,
     pError: 0.0,
     pPreload: 0.0,
     pDelayResponse: 0.0
@@ -251,6 +254,7 @@ function buildScriptGraph(size, maybeOptions) {
   const pTopLevelAwait = options.pTopLevelAwait / size;
   const pDynamic = options.pDynamic / size;
   const pCyclic = options.pCyclic / size - 1;
+  const pNotFound = options.pNotFound / size;
   const pError = options.pError / size;
   const pPreload = options.pPreload;
 
@@ -287,6 +291,7 @@ function buildScriptGraph(size, maybeOptions) {
     } else {
       flags = {
         isModule: choose(pModule),
+        isNotFound: choose(pNotFound),
         isError: choose(pError),
         hasPreload: choose(pPreload),
         hasTopLevelAwait: choose(pTopLevelAwait),
@@ -309,7 +314,9 @@ function buildScriptGraph(size, maybeOptions) {
       }
     }
 
-    importers.push(node);
+    if (!node.isNotFound) {
+      importers.push(node);
+    }
 
     if (choose(pCyclic)) {
       // Choose an ancestor to import.
@@ -458,7 +465,7 @@ function fullGraphCheck(graph) {
 
   // First, all classic scripts load.
   graph.root.forEachOutgoingEdge(node => {
-    if (!node.isModule) {
+    if (!node.isModule && !node.isNotFound) {
       expectedOrder.push(node.index);
       expectedStart[node.index] = true;
       expectedFinish[node.index] = !node.isError;
@@ -470,7 +477,18 @@ function fullGraphCheck(graph) {
 
   // Then all modules, which are 'defer' by default.
   graph.root.forEachOutgoingEdge(node => {
-    if (node.isModule) {
+    if (node.isModule && !node.isNotFound) {
+      let found = true;
+      DFS(node,
+          node => {
+            if (node.isNotFound) {
+              found = false;
+            }
+          });
+      if (!found) {
+        return;
+      }
+
       let failed = false;
       DFS(node,
           node => {
