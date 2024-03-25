@@ -6,11 +6,18 @@
 import { Graph, Node, Edge, DFS } from "./graph.mjs";
 
 let state;
-
 let config = {};
 
 let testCount;
 let startTime;
+
+let graph;
+let error;
+let result;
+let loadOrder;
+let loadStarted;
+let loadFinished;
+let loadErrored;
 
 let startButton = document.getElementById("start");
 let stepButton = document.getElementById("step");
@@ -98,6 +105,22 @@ function initConfigBool(name) {
   readConfig();
 }
 
+let initialGraphSpec = document.location.hash;
+if (initialGraphSpec) {
+  let error;
+  try {
+    graph = Graph.fromString(initialGraphSpec.substring(1));
+    print("Loaded graph: " + initialGraphSpec)
+  } catch (error) {
+    print("Error decoding hash: " + error);
+  }
+
+  if (graph) {
+    repeatButton.disabled = false;
+    repeat();
+  }
+}
+
 function runNextTest() {
   if (!state) {
     return;
@@ -107,14 +130,6 @@ function runNextTest() {
   clear();
   fuzz();
 }
-
-let graph;
-let error;
-let result;
-let loadOrder;
-let loadStarted;
-let loadFinished;
-let loadErrored;
 
 function fuzz() {
   let size = rand(config.size - 1) + 2;
@@ -137,6 +152,9 @@ function fuzz() {
 
 function testGeneratedGraph() {
   testCount++;
+
+  let graphString = graph.toString();
+  history.replaceState(graphString, "", "#" + graphString);
 
   let pageURL = graph.getRootURL();
 
