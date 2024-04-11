@@ -1,13 +1,51 @@
 modfuzz
 =======
 
-This is a attempt to write a simple fuzzer to test the DOM module loader.
+This is a simple fuzzer to test DOM module/script loading.
 
-It generates random script/module graphs and serves them with a node based
-webserver.
+It generates random script graphs and tries to load them, checking the result.
 
 Start the server with:
 
  $ node server.mjs
 
 Then browse to http://localhost:8000/ to access the fuzzer.
+
+How it works
+------------
+
+The static/main.js script runs in the browser and generates a random script
+graph. The root of the graph represents the HTML page and its children are
+classic or module JS scripts. The page attempts to load the graph from the
+server by encoding the graph into a URL.
+
+The server decodes the requested graph from the URL and builds an equivalent
+copy. The code to manage the graph (static/graph.js) is shared and runs in
+both the browser and on the server. The server generates HTML pages and JS
+code from the specification and serves it back to the browser.
+
+The browser waits for the load to complete and checks that what was expected
+to load did load, what was expected to fail failed, and that the load happened
+in the expected order.
+
+Failure is reported in the page, otherwise another graph is generated and
+process repeats.
+
+Features
+--------
+
+Curently the following features are supported and are tested by this program:
+ - Module / classic scripts
+ - Import maps
+ - Parse errors
+ - Runtime errors
+ - Script preloads
+ - Delayed responses from the server
+
+To do / ideas
+-------------
+
+ - Generate scripts that use top level await (partially implemented)
+ - Generate larger scripts to trigger off-thread parsing
+ - Generate async module scripts and async/defer classic scripts
+ - Import maps could change the meaning of existing specifiers too
