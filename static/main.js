@@ -84,6 +84,7 @@ initConfigBool("importMaps");
 initConfigBool("missing");
 initConfigBool("errors");
 initConfigBool("preloads");
+initConfigBool("topLevelAwait");
 initConfigBool("delayResponses");
 
 function initConfigRange(name, displayName) {
@@ -138,6 +139,7 @@ function fuzz() {
     pNotFound: config.missing ? 0.25 : 0.0,
     pError: config.errors ? 0.25 : 0.0,
     pPreload: config.preloads ? 0.5 : 0.0,
+    pTopLevelAwait: config.topLevelAwait ? 0.5 : 0.0,
     pDelayResponse: config.delayResponses ? 0.25 : 0.0
   };
   graph = buildScriptGraph(size, options);
@@ -306,9 +308,12 @@ function buildScriptGraph(size, maybeOptions) {
       isNotFound: choose(pNotFound),
       isError: choose(pError),
       hasPreload: choose(pPreload),
-      hasTopLevelAwait: choose(pTopLevelAwait),
       isSlow: choose(pDelayResponse)
     };
+
+    if (flags.isModule) {
+      flags.hasTopLevelAwait = choose(pTopLevelAwait);
+    }
 
     let node = new Node(i, flags);
     graph.addNode(node);
@@ -467,14 +472,14 @@ function simpleGraphCheck(graph) {
 
   if (!graph.hasError()) {
     let expected = new Array(graph.size).fill(true);
-    assertEq(loadStarted.join(), expected.join());
-    assertEq(loadFinished.join(), expected.join());
+    checkEqual('Load started (simple)', loadStarted.join(), expected.join());
+    checkEqual('Load finished (simple)', loadFinished.join(), expected.join());
     return;
   }
 
   graph.forEachNode(node => {
     if (node.isError) {
-      assertEq(loadFinished[node.index], false);
+      checkEqual('Load finished (simple)', loadFinished[node.index], false);
     }
   });
 }
@@ -538,15 +543,14 @@ function fullGraphCheck(graph) {
     }
   });
 
-  assertEq(loadOrder.join(), expectedOrder.join());
-  assertEq(loadStarted.join(), expectedStart.join());
-  assertEq(loadFinished.join(), expectedFinish.join());
-  assertEq(loadErrored.join(), expectedError.join());
+  checkEqual('Load started', loadStarted.join(), expectedStart.join());
+  checkEqual('Load finished', loadFinished.join(), expectedFinish.join());
+  checkEqual('Load errored', loadErrored.join(), expectedError.join());
+  checkEqual('Load order', loadOrder.join(), expectedOrder.join());
 }
 
-function assertEq(actual, expected) {
+function checkEqual(description, actual, expected) {
   if (actual !== expected) {
-    let message = `Assertion failure: expected ${expected} but got ${actual}`;
-    throw new AssertionError(message);
+    throw new AssertionError(`${description}: expected ${expected} but got ${actual}`);
   }
 }

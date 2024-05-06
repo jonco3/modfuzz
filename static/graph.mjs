@@ -183,7 +183,7 @@ export class Graph {
 
   hasError() {
     for (let node of this.nodes) {
-      if (node.isError) {
+      if (node.isError || node.isNotFound) {
         return true;
       }
     }

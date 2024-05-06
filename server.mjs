@@ -237,7 +237,7 @@ function buildScriptSource(graph, node) {
   }
 
   if (node.hasTopLevelAwait) {
-    if (!node.isMoudule) {
+    if (!node.isModule) {
       throw new Error("TLA only supported in modules");
     }
     lines.push(`await 0;`);
