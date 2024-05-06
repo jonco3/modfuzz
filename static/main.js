@@ -282,10 +282,6 @@ function buildScriptGraph(size, maybeOptions) {
 
   let graph = new Graph();
 
-  // List of nodes that can import other nodes, so the root plus all module
-  // scripts.
-  let importers = [];
-
   let hasImportMap = choose(pImportMap);
   if (hasImportMap) {
     if (choose(pStaticImportMap)) {
@@ -297,22 +293,23 @@ function buildScriptGraph(size, maybeOptions) {
 
   let pBareImport = hasImportMap ? pBareImportGivenImportMap : 0.0;
 
-  for (let i = 0; i < size; i++) {
-    let flags;
-    if (i === 0) {
-      flags = {
-        isModule: true  // The page has an inline module.
-      };
-    } else {
-      flags = {
-        isModule: choose(pModule),
-        isNotFound: choose(pNotFound),
-        isError: choose(pError),
-        hasPreload: choose(pPreload),
-        hasTopLevelAwait: choose(pTopLevelAwait),
-        isSlow: choose(pDelayResponse)
-      };
-    }
+  let root = new Node(0, {});
+  graph.addNode(root);
+
+  // List of nodes that can import other nodes, so the root plus all module
+  // scripts.
+  let importers = [root];
+
+  for (let i = 1; i < size; i++) {
+    let flags = {
+      isModule: choose(pModule),
+      isNotFound: choose(pNotFound),
+      isError: choose(pError),
+      hasPreload: choose(pPreload),
+      hasTopLevelAwait: choose(pTopLevelAwait),
+      isSlow: choose(pDelayResponse)
+    };
+
     let node = new Node(i, flags);
     graph.addNode(node);
 

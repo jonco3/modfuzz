@@ -111,10 +111,10 @@ function sleep(ms) {
 
 function buildPageSource(graph, node) {
   if (!node.isRoot) {
-    throw "Can't get page source for non-root script";
+    throw new Error("Can't get page source for non-root script");
   }
 
-  if (node.isNotFound || node.hasTopLevelAwait) {
+  if (node.isModule || node.isNotFound || node.hasTopLevelAwait) {
     throw new Error("Not supported");
   }
 
